@@ -125,6 +125,21 @@ Para contexto >96K nesse hardware teria que quantizar o modelo mais agressivamen
 - Makefile targets mapeiam 1:1 aos subcomandos do lmswitch (exceto `install`)
 - Sem dependências externas além das já presentes no Ancalagon (curl, jq, systemd, python3)
 
+## Papel do Ancalagon na rotina
+
+O Ancalagon **complementa, não substitui** as sessões Claude Code do cloud. Tem memória finita (96K) e não possui tools avançadas (Git, MCP, memória entre conversas). É um executor local especializado.
+
+Três modos de uso previstos, com guidance detalhado em [`docs/delegation.md`](docs/delegation.md):
+
+1. **Planejar aqui, executar lá** — recortar escopo no cloud, passar briefing autocontido para Ancalagon executar
+2. **Transição forçada** — quando o cloud esgota tokens, usar `AI_CONTEXT.md` do projeto como bootstrap de uma sessão local via `srl-coder`
+3. **Operacional rotineiro** — tarefas repetitivas via `curl` direto na `:1234`
+
+Regras que valem sempre:
+- Conversas >10 turnos com Ancalagon degradam; reset com `AI_CONTEXT.md` atualizado é melhor que iterar em contexto sujo
+- Briefing maior que 40K tokens = recorte foi mal; volta pro planejamento
+- Decisões arquiteturais / cross-repo / PR: nunca no Ancalagon
+
 ## Memórias relacionadas
 
 - `~/.claude/projects/-Users-lucas/memory/project_ancalagon_ubuntu.md` — setup completo do Ancalagon (hardware, drivers, modelos, MOK, Tailscale, rede)
