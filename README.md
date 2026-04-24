@@ -121,15 +121,38 @@ Já aplicado no `~/.zshrc` do Glaurung:
 export REMOTE_SSH_HOST="Ancalagon_Ubuntu-Tailnet"
 export LCC_HOST="100.91.10.22"
 
+# Controle dos services (ssh remoto → lmswitch)
 alias llcoder='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch coder'
 alias llq36='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch qwen36'
 alias lloff='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch off'
 alias llstatus='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch status'
 alias lllogs='ssh -t "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch logs'
 export ANCALAGON_LLM_URL="http://${LCC_HOST}:1234/v1"
+
+# Entrar no Claude Code apontando pro service ativo (local-claude em ~/git/local-claude)
+# srl-coder usa backend `remote` (só conecta, não sobe instância) → aproveita tuning do service
+alias srl-coder='specstory run claude -c "local-claude --backend remote --port 1234" --no-cloud-sync'
+alias srl-tq='specstory run claude -c "local-claude --backend remote-llama --tq3" --no-cloud-sync'
+alias srl='specstory run claude -c "local-claude --backend remote-llama" --no-cloud-sync'
 ```
 
 Caminho absoluto no lmswitch é necessário — SSH não-interativo ignora `~/.local/bin`.
+
+### Fluxo típico de uso
+
+```zsh
+# Trabalho em código (MoE rápido, ~80 tok/s)
+llcoder && srl-coder
+
+# Thinking/análise com reasoning (TQ3, ~37 tok/s, 100% GPU)
+llq36 && srl-tq
+
+# Liberar GPU
+lloff
+```
+
+**Por que `srl-coder` usa `--backend remote` e não `--backend remote-llama`?**
+`remote-llama` sobe uma *nova* instância via SSH com flags default (`-ngl 99` apenas — sem `--n-cpu-moe`). Para o Qwen3-Coder 30B MoE isso dá OOM ou inferência muito lenta. `remote` apenas conecta ao server existente, aproveitando as flags tuned do `llama-coder.service` (`--n-cpu-moe 12`, KV q4/q4, 32K ctx). Mesma razão pela qual o modelo **não aparece no listing do `srl`**: o `local-claude` lista só `$REMOTE_MODELS_DIR=~/models/gguf/` e o Qwen3-Coder vive em `~/.lmstudio/models/...` — mas isso é irrelevante quando se usa `srl-coder`, porque ele nem tenta listar, só conecta ao :1234.
 
 ## `benchmarks/`
 

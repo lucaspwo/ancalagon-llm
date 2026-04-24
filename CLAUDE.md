@@ -61,6 +61,25 @@ make logs        # journalctl -f do service ativo
 
 Idempotente — `make install` reexecutado sobrescreve units + wrapper sem efeitos colaterais.
 
+## Uso dos clients (Mac)
+
+Aliases do `.zshrc` do Glaurung — controle + entrada no Claude Code:
+
+```
+llcoder && srl-coder    # qwen3-coder 30B MoE, ~80 tok/s
+llq36 && srl-tq         # qwen3.6-27b TQ3, ~37 tok/s, 100% GPU, com reasoning
+lloff                   # libera a GPU
+```
+
+- `llcoder`/`llq36`/`lloff`/`llstatus`/`lllogs` → `ssh` + `lmswitch` (controlam os services)
+- `srl-coder` → `local-claude --backend remote --port 1234` (só conecta, reaproveita tuning do service)
+- `srl-tq` → `local-claude --backend remote-llama --tq3` (sobe instância via SSH; legacy, usa porta 8091 e binário do fork em `~/git/llama.cpp-tq3/`)
+- `srl` → `local-claude --backend remote-llama` (sobe instância via SSH; legacy, lista modelos de `~/models/gguf/`)
+
+**Importante**: `srl` e `srl-tq` sobem **nova instância** do llama-server (porta 8091), enquanto `srl-coder` apenas conecta ao service na 1234. Não rode `srl` enquanto `llama-coder.service` ou `llama-qwen36.service` estão ativos — a nova instância vai competir por VRAM e provavelmente dar OOM. A mesma restrição vale para misturar `llcoder` com `llq36` — os services têm `Conflicts=`, mas `srl`/`srl-tq` não estão sob esse controle.
+
+**Qwen3-Coder não aparece no `srl`** porque vive em `~/.lmstudio/models/` (fora do `$REMOTE_MODELS_DIR=~/models/gguf/`). Isso é intencional: não queremos que o `srl` suba sem `--n-cpu-moe` e rode devagar. Use sempre `llcoder && srl-coder` para esse modelo.
+
 ## Pré-requisitos no Ancalagon (não gerenciados por este repo)
 
 - `/home/lucas/git/llama.cpp/build/bin/llama-server` compilado com CUDA sm_89
@@ -102,4 +121,5 @@ Se `make status` + um bench curto (5-par quantum entanglement, 400 tokens) der m
 - Compilação do llama.cpp / fork TQ3 (manual no Ancalagon)
 - Download de modelos (manual no Ancalagon)
 - Configuração do Tailscale
-- Aliases do Mac `.zshrc` (vivem em `~/.zshrc` do Glaurung — adicionados manualmente, não sincronizados por este repo)
+- `~/git/local-claude/` — fonte do `local-claude`, que implementa os backends `remote`, `remote-llama`, `llama`, `lmstudio`, `apfel`. Repo separado
+- Aliases do Mac `.zshrc` (vivem em `~/.zshrc` do Glaurung — adicionados manualmente, não sincronizados por este repo; documentados aqui e no README para referência)
