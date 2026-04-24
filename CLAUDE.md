@@ -60,7 +60,14 @@ make sleep       # para services + suspende o sistema (wake via WoL)
 make logs        # journalctl -f do service ativo
 ```
 
-`make sleep` depende de entrada `NOPASSWD: ALL` para o usuário `lucas` em `/etc/sudoers.d/lucas-nopasswd` no Ancalagon. É decisão consciente — acesso à máquina é de uso pessoal. Se algum dia o Ancalagon for compartilhado, revisar essa permissão antes.
+`make sleep` depende de:
+- `/etc/sudoers.d/lucas-nopasswd` com `lucas ALL=(ALL) NOPASSWD: ALL` (decisão consciente — uso pessoal)
+- `nvidia-suspend.service`/`nvidia-resume.service`/`nvidia-hibernate.service` **habilitados** (driver `nvidia-open` precisa deles para preservar VRAM em S3 — sem isso `systemd-suspend` falha com "NVRM: PreserveVideoMemoryAllocations ...")
+- `/etc/netplan/99-wol.yaml` com `wakeonlan: true` na eno1 (NIC vem com WoL desarmado por padrão)
+
+Todos os três são aplicados por `make install-system` (deploy de `systemd/99-wol.yaml` + `scripts/setup-system.sh`). `NOPASSWD` foi instalado out-of-band na primeira vez.
+
+Acordar após `make sleep`: `make wake` (ou alias `wakepc` no Mac) manda o magic packet via LAN. Uptime contínuo pós-wake confirma resume de S3 (não reboot).
 
 Idempotente — `make install` reexecutado sobrescreve units + wrapper sem efeitos colaterais.
 

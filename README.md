@@ -155,7 +155,12 @@ lloff
 llsleep
 ```
 
-O `llsleep` exige entrada NOPASSWD no `/etc/sudoers.d/` do Ancalagon. Depois do wake via WoL os services **não sobem automaticamente** (`enabled` continua off) — rodar `llcoder` ou `llq36` conforme o caso.
+O `llsleep` exige três pré-requisitos no Ancalagon, aplicados por `make install-system`:
+- `/etc/sudoers.d/lucas-nopasswd` (NOPASSWD — feito manualmente na primeira vez)
+- `nvidia-suspend/resume/hibernate.service` habilitados (driver `nvidia-open` falha suspend sem eles)
+- `/etc/netplan/99-wol.yaml` armando WoL na eno1 (default é desarmado)
+
+Depois do wake via WoL os services **não sobem automaticamente** (`enabled` continua off) — rodar `llcoder` ou `llq36` conforme o caso.
 
 **Por que `srl-coder` usa `--backend remote` e não `--backend remote-llama`?**
 `remote-llama` sobe uma *nova* instância via SSH com flags default (`-ngl 99` apenas — sem `--n-cpu-moe`). Para o Qwen3-Coder 30B MoE isso dá OOM ou inferência muito lenta. `remote` apenas conecta ao server existente, aproveitando as flags tuned do `llama-coder.service` (`--n-cpu-moe 16`, KV q4/q4, 96K ctx). Mesma razão pela qual o modelo **não aparece no listing do `srl`**: o `local-claude` lista só `$REMOTE_MODELS_DIR=~/models/gguf/` e o Qwen3-Coder vive em `~/.lmstudio/models/...` — mas isso é irrelevante quando se usa `srl-coder`, porque ele nem tenta listar, só conecta ao :1234.

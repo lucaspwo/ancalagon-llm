@@ -1,0 +1,16 @@
+# netplan override — arma Wake-on-LAN na eno1 para resume após `llsleep`.
+#
+# Destino: /etc/netplan/99-wol.yaml no Ancalagon (permissão 0600).
+# Nome 99-* para fazer merge DEPOIS do 50-cloud-init.yaml (auto-gerado).
+# Não editar o 50-cloud-init diretamente — ele pode ser regenerado.
+#
+# Deploy: scripts/setup-system.sh ou `make install-system` no Ancalagon.
+# Verificar: `sudo ethtool eno1 | grep Wake-on` deve mostrar "Wake-on: g"
+#
+# Sem isto, NIC entra em S3 com WoL desabilitado (Wake-on: d) e magic packet
+# não acorda a máquina. Bug observado em 2026-04-24.
+network:
+  version: 2
+  ethernets:
+    eno1:
+      wakeonlan: true

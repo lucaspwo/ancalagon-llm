@@ -59,6 +59,7 @@ Dois services mutuamente exclusivos (`Conflicts=`), ambos na :1234. LM Studio se
 - Mac `.zshrc` tem aliases `llcoder`/`llq36`/`lloff`/`llsleep`/`llstatus`/`lllogs` (controle) e `srl-coder`/`srl-tq`/`srl` (entrada no Claude Code)
 - `lmstudio.service` stopped + disabled no Ancalagon (conflito de VRAM e porta com os llama services)
 - `/etc/sudoers.d/lucas-nopasswd` concede `NOPASSWD: ALL` ao usuário `lucas` — usado por `lmswitch sleep` e facilita manutenção via SSH. Uso pessoal, máquina não compartilhada.
+- Suspend/WoL validado ciclo completo em 2026-04-24: `llsleep` → S3 real → `wakeonlan` na LAN → resume (uptime preservado). Exigiu configurar `nvidia-suspend/resume/hibernate.service` (habilitar) + netplan `wakeonlan: true` na eno1.
 
 ## Como testar uma mudança
 

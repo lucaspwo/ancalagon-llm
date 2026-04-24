@@ -1,9 +1,16 @@
 REMOTE ?= Ancalagon_Ubuntu-Tailnet
 
-.PHONY: install status coder qwen36 off sleep logs
+.PHONY: install install-system wake status coder qwen36 off sleep logs
 
 install:
 	@bash scripts/install.sh
+
+install-system:
+	@scp systemd/99-wol.yaml scripts/setup-system.sh $(REMOTE):/tmp/
+	@ssh $(REMOTE) 'bash /tmp/setup-system.sh'
+
+wake:
+	@wakeonlan 10:7C:61:45:D8:38
 
 status:
 	@ssh $(REMOTE) /home/lucas/.local/bin/lmswitch status

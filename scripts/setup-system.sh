@@ -1,0 +1,42 @@
+#!/bin/bash
+# setup-system.sh — aplica configurações de sistema no Ancalagon que são
+# pré-requisito para o `lmswitch sleep` funcionar corretamente.
+#
+# Idempotente. Roda com sudo (ou via usuário com NOPASSWD).
+#
+# O que faz:
+#   1. Habilita nvidia-suspend/resume/hibernate.service (o driver nvidia-open
+#      falha o suspend se esses services não estiverem ativos — observado
+#      2026-04-24 com erro NVRM "PreserveVideoMemoryAllocations ...").
+#   2. Instala netplan override /etc/netplan/99-wol.yaml para armar
+#      Wake-on-LAN na eno1 (default vem como "wol: d" = disabled).
+#   3. Aplica netplan (netplan apply) e valida ethtool.
+#
+# Pré-requisito não gerenciado aqui:
+#   - /etc/sudoers.d/lucas-nopasswd com "lucas ALL=(ALL) NOPASSWD: ALL"
+#     (feito out-of-band na primeira instalação — trocar senha root pós-install)
+#
+# Uso: no Ancalagon, `bash scripts/setup-system.sh`
+# Deploy remoto: `make install-system` do Mac.
+
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+echo "→ Habilitando nvidia-*.service..."
+sudo systemctl enable nvidia-suspend.service nvidia-resume.service nvidia-hibernate.service 2>&1 | tail -5
+echo ""
+
+echo "→ Instalando netplan override 99-wol.yaml..."
+sudo install -m 0600 -o root -g root \
+  "$REPO_DIR/systemd/99-wol.yaml" /etc/netplan/99-wol.yaml
+sudo netplan apply
+
+echo ""
+echo "→ Validando WoL armado..."
+sleep 2
+sudo ethtool eno1 | grep -E "Wake-on" | sed 's/^/  /'
+
+echo ""
+echo "Done. Teste com: lmswitch sleep (do Ancalagon) ou llsleep (do Mac)"
+echo "Acordar com: wakeonlan 10:7C:61:45:D8:38 (do Mac)"
