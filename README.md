@@ -1,6 +1,6 @@
 # ancalagon-llm
 
-Setup do Ancalagon (Ubuntu Server 24.04 dual-boot) como servidor LLM dedicado, otimizado para GPU RTX 4070 Ti SUPER (16 GB VRAM). Substitui LM Studio por `llama.cpp` nativo controlado por systemd, com dois presets mutuamente exclusivos: Qwen3-Coder 30B (MoE upstream) e Qwen3.6-27B (fork TQ3).
+Setup do Ancalagon (Ubuntu Server 24.04 dual-boot) como servidor LLM dedicado, otimizado para GPU RTX 4070 Ti SUPER (16 GB VRAM). Substitui LM Studio por `llama.cpp` nativo controlado por systemd, com três presets mutuamente exclusivos: Qwen3-Coder 30B (MoE upstream), Qwen3.6-27B (fork TQ3) e Gemma 4 26B-A4B-it (MoE upstream).
 
 Consumido do Mac (Glaurung) via Tailscale em `100.91.10.22:1234`.
 
@@ -28,8 +28,9 @@ Cross-machine via Tailscale: 96.4 tok/s gen no coder, 255ms round-trip em prompt
 Glaurung (Mac)                    Ancalagon-Ubuntu
                                   (100.91.10.22 / 192.168.1.8)
 aliases:                          systemd --user:
-  llcoder  ──────ssh─────▶        llama-coder.service ─┐
-  llq36    ──────ssh─────▶        llama-qwen36.service ┼─ Conflicts=
+  llcoder  ──────ssh─────▶        llama-coder.service ──┐
+  llq36    ──────ssh─────▶        llama-qwen36.service ─┤
+  llgemma4 ──────ssh─────▶        llama-gemma4.service ─┼─ Conflicts=
   lloff    ──────ssh─────▶        (lmstudio.service    ─┘  (only one up)
   llstatus ──────ssh─────▶        + disabled)
                                        │
@@ -55,8 +56,15 @@ Upstream llama.cpp com Qwen3-Coder-30B-A3B-Instruct Q4_K_M. Flags:
 
 Fork `turbo-tan/llama.cpp-tq3` com Qwen3.6-27B-TQ3_4S (13 GB, cabe 100% GPU).
 
-- `-c 32768 -ngl 99 -fa 1 -ctk q8_0 -ctv q8_0 -t 12` (KV q8, não q4 — experiência mostra q4 causa fallback CUDA catastrófico nesse modelo)
+- `-c 40960 -ngl 99 -fa 1 -ctk q8_0 -ctv q8_0 -t 12` (KV q8, não q4 — experiência mostra q4 causa fallback CUDA catastrófico nesse modelo; ctx limitado pela VRAM — 48K+ daria OOM com ~770 MiB de folga original)
 - Mesmo `Conflicts=`
+
+### `systemd/llama-gemma4.service`
+
+Upstream llama.cpp com Gemma 4 26B-A4B-it Q4_K_M (16 GB em disco, MoE com 4B ativos). Mesmo binário do coder.
+
+- `-c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 16 --jinja` (config inicial espelha a do coder; medido após primeiro boot — 57 tok/s gen, 10 GiB VRAM usada, 5.9 GiB livre — há folga pra baixar ncmoe e ganhar tok/s, ver `benchmarks/TUNING.md` §7)
+- Bind `0.0.0.0:1234`, `Conflicts=llama-coder.service llama-qwen36.service lmstudio.service`
 
 ### `bin/lmswitch`
 
@@ -70,6 +78,7 @@ Uso:
 ```
 lmswitch coder    # sobe qwen3-coder
 lmswitch qwen36   # sobe qwen3.6 TQ3
+lmswitch gemma4   # sobe gemma-4-26b
 lmswitch off      # para tudo
 lmswitch status
 lmswitch logs
@@ -105,6 +114,7 @@ cat >> ~/.zshrc <<'EOF'
 
 alias llcoder="lmswitch coder"
 alias llq36="lmswitch qwen36"
+alias llgemma4="lmswitch gemma4"
 alias lloff="lmswitch off"
 alias llstatus="lmswitch status"
 alias lllogs="lmswitch logs"
@@ -124,6 +134,7 @@ export LCC_HOST="100.91.10.22"
 # Controle dos services (ssh remoto → lmswitch)
 alias llcoder='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch coder'
 alias llq36='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch qwen36'
+alias llgemma4='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch gemma4'
 alias lloff='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch off'
 alias llsleep='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch sleep'
 alias llstatus='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch status'

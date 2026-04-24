@@ -10,9 +10,10 @@ Setup do Ancalagon (Ubuntu Server 24.04 dual-boot, RTX 4070 Ti SUPER 16 GB VRAM)
 
 ```
 Glaurung (Mac)                    Ancalagon-Ubuntu (100.91.10.22)
-aliases no .zshrc                  systemd --user (Conflicts= entre os três):
+aliases no .zshrc                  systemd --user (Conflicts= entre os quatro):
   llcoder  ──ssh──▶                llama-coder.service   (upstream)
   llq36    ──ssh──▶                llama-qwen36.service  (fork TQ3)
+  llgemma4 ──ssh──▶                llama-gemma4.service  (upstream)
   lloff    ──ssh──▶                lmstudio.service      (DISABLED)
   llstatus ──ssh──▶                     │
                                         ▼
@@ -27,8 +28,9 @@ Porta **1234** (mesma do LM Studio — clientes OpenAI-compat existentes não tr
 
 ```
 systemd/
-  llama-coder.service      # Qwen3-Coder-30B Q4_K_M, --n-cpu-moe 12
+  llama-coder.service      # Qwen3-Coder-30B Q4_K_M, --n-cpu-moe 16
   llama-qwen36.service     # Qwen3.6-27B-TQ3_4S, fork turbo-tan/llama.cpp-tq3
+  llama-gemma4.service     # Gemma 4 26B-A4B-it Q4_K_M, --n-cpu-moe 16
 bin/
   lmswitch                 # wrapper {coder|qwen36|off|status|logs}
 scripts/
@@ -55,6 +57,7 @@ make install     # scp units + lmswitch, daemon-reload no Ancalagon
 make status      # probe do service ativo + health na :1234
 make coder       # sobe qwen3-coder
 make qwen36      # sobe qwen3.6 TQ3 (mata coder)
+make gemma4      # sobe gemma-4-26b (mata os outros)
 make off         # para services (mantém máquina ligada)
 make sleep       # para services + suspende o sistema (wake via WoL)
 make logs        # journalctl -f do service ativo
@@ -78,6 +81,7 @@ Aliases do `.zshrc` do Glaurung — controle + entrada no Claude Code:
 ```
 llcoder && srl-coder    # qwen3-coder 30B MoE, ~80 tok/s
 llq36 && srl-tq         # qwen3.6-27b TQ3, ~37 tok/s, 100% GPU, com reasoning
+llgemma4                # gemma 4 26B-A4B MoE, ~57 tok/s (alternativa ao coder — ver TUNING §7)
 lloff                   # libera a GPU
 ```
 
@@ -97,6 +101,7 @@ lloff                   # libera a GPU
 - Modelos:
   - `/home/lucas/.lmstudio/models/lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-GGUF/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf`
   - `/home/lucas/models/gguf/Qwen3.6-27B-TQ3_4S.gguf`
+  - `/home/lucas/.lmstudio/models/lmstudio-community/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-Q4_K_M.gguf`
 - `lmstudio.service` do user systemd: **stopped + disabled** (conflito por VRAM + porta)
 
 Build do llama.cpp upstream e do fork não fazem parte deste repo — ver `project_ancalagon_ubuntu.md` na memória para histórico de setup.
@@ -109,10 +114,11 @@ Medido em `benchmarks/TUNING.md`. Hardware: Ryzen 5 7600X + RTX 4070 Ti SUPER.
 |---|---|---|---|---|---|
 | llama-coder (96K ctx, ncmoe=16) | 77.8 (prompt curto) / 1129 pp (96K prefill) | ~1130 | 36% | 100W | 15.4 GiB (559 MiB livres) |
 | llama-qwen36 | 36.8 | 1266 | 96% | 292W | 14.8 GiB |
+| llama-gemma4 (96K ctx, ncmoe=16) | 57 (prompt curto) / 49 (12K prefill) | 1940 (12K prefill) | 41% | 83W | 10.0 GiB (5.9 GiB livres — há folga) |
 
 Cross-machine via Tailscale: 96.4 tok/s gen / 255ms round-trip em prompts pequenos.
 
-Se `make status` + um bench curto (5-par quantum entanglement, 400 tokens) der menos de **55 tok/s no coder** ou **25 tok/s no qwen36**, há regressão — checar primeiro: `nvidia-smi` (GPU ocupada por outro processo?), `journalctl --user -u llama-$MODELO.service` (erro na boot do service), versão do llama.cpp (recompilação do fork pode ter quebrado).
+Se `make status` + um bench curto (5-par quantum entanglement, 400 tokens) der menos de **55 tok/s no coder**, **25 tok/s no qwen36** ou **40 tok/s no gemma4**, há regressão — checar primeiro: `nvidia-smi` (GPU ocupada por outro processo?), `journalctl --user -u llama-$MODELO.service` (erro na boot do service), versão do llama.cpp (recompilação do fork pode ter quebrado).
 
 ### Ctx vs tok/s tradeoff (empírico)
 

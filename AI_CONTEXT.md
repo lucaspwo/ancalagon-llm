@@ -24,6 +24,7 @@ Glaurung (Mac)                        Ancalagon-Ubuntu
 aliases .zshrc                         systemd --user (Conflicts= entre si):
   llcoder  ──ssh──▶                    llama-coder.service   (upstream)
   llq36    ──ssh──▶                    llama-qwen36.service  (fork TQ3)
+  llgemma4 ──ssh──▶                    llama-gemma4.service  (upstream)
   lloff    ──ssh──▶                    lmstudio.service      (DISABLED)
   srl-coder                                 │
   srl-tq                                    ▼
@@ -32,7 +33,7 @@ aliases .zshrc                         systemd --user (Conflicts= entre si):
 curl http://100.91.10.22:1234 ──────────────┘
 ```
 
-Dois services mutuamente exclusivos (`Conflicts=`), ambos na :1234. LM Studio service foi desabilitado em `2026-04-22` e **não deve voltar** — a razão está em [`benchmarks/TUNING.md`](benchmarks/TUNING.md) (LM Studio subutilizava GPU em ~35% de utilização vs 96% com llama.cpp nativo + quant TQ3).
+Três services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio service foi desabilitado em `2026-04-22` e **não deve voltar** — a razão está em [`benchmarks/TUNING.md`](benchmarks/TUNING.md) (LM Studio subutilizava GPU em ~35% de utilização vs 96% com llama.cpp nativo + quant TQ3).
 
 ## Artefatos mantidos por este repo
 
@@ -40,7 +41,8 @@ Dois services mutuamente exclusivos (`Conflicts=`), ambos na :1234. LM Studio se
 |---|---|---|
 | `systemd/llama-coder.service` | user unit — Qwen3-Coder 30B MoE, `--n-cpu-moe 16`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
 | `systemd/llama-qwen36.service` | user unit — Qwen3.6-27B TQ3_4S (fork), KV q8/q8, ctx 32K | idem |
-| `bin/lmswitch` | wrapper com subcomandos `coder\|qwen36\|off\|status\|logs` | `~/.local/bin/` no Ancalagon |
+| `systemd/llama-gemma4.service` | user unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 16`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
+| `bin/lmswitch` | wrapper com subcomandos `coder\|qwen36\|gemma4\|off\|sleep\|status\|logs` | `~/.local/bin/` no Ancalagon |
 | `scripts/install.sh` | deploy idempotente via scp + daemon-reload | — (roda do Mac) |
 | `Makefile` | targets `install`/`coder`/`qwen36`/`off`/`status`/`logs` | — |
 
@@ -54,7 +56,7 @@ Dois services mutuamente exclusivos (`Conflicts=`), ambos na :1234. LM Studio se
 
 ## Estado atual (2026-04-24)
 
-- Services rodando com `ctx=96K` no coder, `ctx=32K` no qwen36
+- Services rodando com `ctx=96K` no coder, `ctx=40K` no qwen36, `ctx=96K` no gemma4 (alternativa ao coder)
 - Documentação em 3 arquivos: `README.md` (arquitetura), `CLAUDE.md` (visão para futuras sessões Claude), `docs/delegation.md` (charter para delegação do cloud para Ancalagon)
 - Mac `.zshrc` tem aliases `llcoder`/`llq36`/`lloff`/`llsleep`/`llstatus`/`lllogs` (controle) e `srl-coder`/`srl-tq`/`srl` (entrada no Claude Code)
 - `lmstudio.service` stopped + disabled no Ancalagon (conflito de VRAM e porta com os llama services)
