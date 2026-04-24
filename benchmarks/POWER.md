@@ -26,12 +26,12 @@ Medições feitas em **2026-04-24**. Config atual: coder ctx=96K ncmoe=16, qwen3
 
 ## Custo por hora de uso
 
-Tarifa real da conta de energia do Lucas (componentes reguladas, **antes de impostos**):
+Tarifa real da conta do Lucas, **já com todos os tributos** (PIS 1,02%, COFINS 4,67%, ICMS 20%):
 - Consumo TUSD: **R$ 0,57337503/kWh**
 - Consumo TE: **R$ 0,41305269/kWh**
-- **Total regulado: R$ 0,98642772/kWh**
+- **Tarifa efetiva: R$ 0,98642772/kWh**
 
-Impostos (ICMS, PIS/COFINS, bandeira tarifária) adicionam tipicamente 20-30% — o valor "de parede" efetivo fica entre **R$ 1,18 e R$ 1,28/kWh**. Os números abaixo usam a tarifa regulada; multiplicar por ~1,25 para aproximar o valor na fatura.
+Atualmente **sem bandeira tarifária** (adicional zero). Custo fixo mensal separado: **Contribuição de Iluminação Pública (CIP) R$ 49,67/mês** — independe do consumo e não entra no cálculo marginal abaixo.
 
 | Cenário (GPU apenas) | Power médio | Custo/h | Custo/dia (8h) | Custo/mês (24/7) |
 |---|---|---|---|---|
@@ -44,7 +44,7 @@ Observações:
 - Uso real é uma mistura de idle + bursts curtos de inference. Valor efetivo fica muito abaixo da linha "inferindo 100% do tempo".
 - **Manter coder carregado 24/7 em idle custa apenas +R$ 2,85/mês** sobre ter o Ancalagon ligado mas sem service (R$ 18,46 − R$ 15,62) — é essa diferença (não o total) que pesa na decisão de `lloff`.
 - Adicionar ~50-100W para CPU/placa/fontes para chegar ao consumo total do sistema.
-- Com impostos: todos os valores acima × ~1,25 para custo real na fatura.
+- Se bandeira subir (amarela +R$ 0,01885/kWh, vermelha 1 +R$ 0,04463/kWh, vermelha 2 +R$ 0,07877/kWh), multiplicar o consumo pelo adicional. Em bandeira vermelha 2 o coder inferindo 100% custaria R$ 0,008/h extra.
 
 ## Quando vale a pena parar o service
 
