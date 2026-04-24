@@ -12,6 +12,7 @@ echo ""
 
 echo "→ Copying systemd units..."
 scp "$REPO_DIR"/systemd/llama-coder.service "$REPO_DIR"/systemd/llama-qwen36.service \
+  "$REPO_DIR"/systemd/llama-gemma4.service \
   "$REMOTE":/home/lucas/.config/systemd/user/
 
 echo "→ Copying lmswitch wrapper..."
