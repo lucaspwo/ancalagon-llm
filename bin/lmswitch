@@ -1,6 +1,6 @@
 #!/bin/bash
 # lmswitch — switch between llama.cpp server presets on Ancalagon-Ubuntu.
-# Both services bind :1234 and are mutually exclusive (single 16GB GPU).
+# All three services bind :1234 and are mutually exclusive (single 16GB GPU).
 set -euo pipefail
 
 PORT=1234
