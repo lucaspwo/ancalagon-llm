@@ -1,0 +1,19 @@
+[Unit]
+Description=llama.cpp server - Qwen3-Coder-30B (MoE, n-cpu-moe=12, 100%% attention on GPU)
+Conflicts=llama-qwen36.service lmstudio.service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/lucas/git/llama.cpp/build/bin
+Environment=PATH=/usr/local/cuda/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/lucas/git/llama.cpp/build/bin/llama-server -m /home/lucas/.lmstudio/models/lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-GGUF/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf --host 0.0.0.0 --port 1234 -c 32768 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 12 --jinja
+Restart=on-failure
+RestartSec=3
+KillMode=mixed
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target

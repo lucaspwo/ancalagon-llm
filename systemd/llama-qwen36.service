@@ -1,0 +1,19 @@
+[Unit]
+Description=llama.cpp TQ3 fork server - Qwen3.6-27B-TQ3_4S (100%% GPU)
+Conflicts=llama-coder.service lmstudio.service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/lucas/git/llama.cpp-tq3/build/bin
+Environment=PATH=/usr/local/cuda/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/lucas/git/llama.cpp-tq3/build/bin/llama-server -m /home/lucas/models/gguf/Qwen3.6-27B-TQ3_4S.gguf --host 0.0.0.0 --port 1234 -c 32768 -ngl 99 -fa 1 -ctk q8_0 -ctv q8_0 -t 12 --jinja
+Restart=on-failure
+RestartSec=3
+KillMode=mixed
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target

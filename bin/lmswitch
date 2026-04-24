@@ -1,0 +1,83 @@
+#!/bin/bash
+# lmswitch — switch between llama.cpp server presets on Ancalagon-Ubuntu.
+# Both services bind :1234 and are mutually exclusive (single 16GB GPU).
+set -euo pipefail
+
+PORT=1234
+COMMAND="${1:-status}"
+
+usage() {
+  cat <<EOF
+Usage: lmswitch {coder|qwen36|off|status|logs}
+
+  coder    — start upstream llama.cpp with Qwen3-Coder-30B-A3B (MoE, ncmoe=12)
+  qwen36   — start TQ3 fork with Qwen3.6-27B-TQ3_4S (100% GPU)
+  off      — stop any active llama server
+  status   — show service states + health probe on :$PORT
+  logs     — tail journal of the currently active llama server
+EOF
+  exit 1
+}
+
+wait_ready() {
+  local svc="$1"
+  local label="$2"
+  printf 'Starting %s ' "$label" >&2
+  for _ in $(seq 1 90); do
+    if ! systemctl --user is-active --quiet "$svc"; then
+      printf '\nService %s is not active; aborting wait.\n' "$svc" >&2
+      systemctl --user --no-pager status "$svc" | tail -15 >&2
+      return 1
+    fi
+    if curl -fs -o /dev/null "http://localhost:$PORT/health" 2>/dev/null; then
+      printf ' ready\n' >&2
+      echo "http://localhost:$PORT (v1/chat/completions)"
+      return 0
+    fi
+    printf '.' >&2
+    sleep 1
+  done
+  printf '\nTimed out after 90s; check: journalctl --user -u %s -n 50\n' "$svc" >&2
+  return 1
+}
+
+case "$COMMAND" in
+  coder)
+    systemctl --user stop llama-qwen36.service 2>/dev/null || true
+    systemctl --user start llama-coder.service
+    wait_ready llama-coder.service "qwen3-coder (ncmoe=12)"
+    ;;
+  qwen36|qwen3.6|tq3)
+    systemctl --user stop llama-coder.service 2>/dev/null || true
+    systemctl --user start llama-qwen36.service
+    wait_ready llama-qwen36.service "qwen3.6-27b TQ3"
+    ;;
+  off|stop)
+    systemctl --user stop llama-coder.service 2>/dev/null || true
+    systemctl --user stop llama-qwen36.service 2>/dev/null || true
+    echo "All llama services stopped"
+    ;;
+  status)
+    for svc in llama-coder llama-qwen36 lmstudio; do
+      state=$(systemctl --user is-active "$svc.service" 2>/dev/null || echo inactive)
+      printf '%-20s %s\n' "${svc}.service:" "$state"
+    done
+    if curl -fs -o /dev/null "http://localhost:$PORT/health" 2>/dev/null; then
+      meta=$(curl -fs "http://localhost:$PORT/v1/models" 2>/dev/null | head -c 200 || true)
+      echo ":$PORT healthy"
+      [ -n "$meta" ] && echo "  model: $(echo "$meta" | grep -oE '"id":"[^"]+"' | head -1)"
+    else
+      echo ":$PORT not responding"
+    fi
+    ;;
+  logs)
+    for svc in llama-coder llama-qwen36; do
+      if systemctl --user is-active --quiet "$svc.service"; then
+        exec journalctl --user -u "$svc.service" -f -n 100
+      fi
+    done
+    echo "No llama server currently active"
+    exit 1
+    ;;
+  *) usage ;;
+esac
