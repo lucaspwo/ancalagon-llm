@@ -145,6 +145,14 @@ Regras que valem sempre:
 - `~/.claude/projects/-Users-lucas/memory/project_ancalagon_ubuntu.md` — setup completo do Ancalagon (hardware, drivers, modelos, MOK, Tailscale, rede)
 - `~/.claude/projects/-Users-lucas/memory/reference_ancalagon_llm_repo.md` — ponteiro para este repo
 
+## Arquivos de orientação deste repo (por ordem de densidade)
+
+- [`AI_CONTEXT.md`](AI_CONTEXT.md) — bootstrap enxuto (1 página). Primeiro turn ideal para uma sessão nova
+- [`CLAUDE.md`](CLAUDE.md) (este arquivo) — guia para trabalhar no repo, inclui threshold de regressão e decisões
+- [`README.md`](README.md) — arquitetura detalhada, ganhos medidos, instalação
+- [`docs/delegation.md`](docs/delegation.md) — charter cloud↔Ancalagon + boas práticas universais + tratamento de offline
+- [`benchmarks/TUNING.md`](benchmarks/TUNING.md) — dados empíricos por trás das configs
+
 ## O que NÃO está aqui
 
 - Compilação do llama.cpp / fork TQ3 (manual no Ancalagon)

@@ -110,6 +110,37 @@ Regra prática: **se o briefing ficou maior que 40K tokens, algo está errado**.
 - **`llq36 && srl-tq`** (Qwen3.6-27B TQ3, 37 tok/s + reasoning) — tarefas que pedem análise mais cuidadosa, debugging com raciocínio explícito
 - **`llcoder` é o default**; escolher `llq36` quando o problema pedir reflexão acima de throughput
 
+## Quando o Ancalagon está indisponível
+
+Ancalagon é dual-boot Windows + Ubuntu. Há pelo menos quatro estados em que a delegação falha, cada um com sintoma e ação diferentes:
+
+| Sintoma | Causa provável | Ação |
+|---|---|---|
+| `ssh Ancalagon_Ubuntu-Tailnet` dá timeout (>5s) | Máquina bootada no **Windows**, ou desligada, ou offline | Pedir ao Lucas bootar no Ubuntu — não há workaround remoto |
+| `ssh` conecta mas `llstatus` mostra serviços `inactive` + `:1234 not responding` | Ubuntu up, services não subiram (boot limpo — eles não são `enabled`) | `llcoder` ou `llq36`, aguardar health OK (~20-60s) |
+| `llstatus` mostra service `active` mas `:1234 not responding` | Service crashou entre start e ready, ou mmap lento em reboot frio | `lloff && llcoder`; se persistir, `lllogs` para ver o erro |
+| Resposta HTTP 400 `exceed_context_size` | Prompt maior que ctx do service (atual: 96K) | Reduzir o prompt; considerar se o recorte foi bom; não reinicia o service |
+
+### Diagnóstico do Mac
+
+```bash
+# 1. Ancalagon ligado e no Ubuntu?
+ssh -o ConnectTimeout=5 Ancalagon_Ubuntu-Tailnet 'uptime && systemctl --user is-active llama-coder.service'
+
+# 2. Porta 1234 responde?
+curl -m 3 -fs http://100.91.10.22:1234/health && echo OK
+```
+
+### Fallbacks quando Ancalagon não estiver disponível
+
+1. **Voltar pra sessão Claude Code cloud** — é o fallback óbvio se ainda houver tokens. A delegação pressupõe escassez de tokens no cloud; se ambos os recursos esgotarem ao mesmo tempo, o problema não é técnico.
+2. **Intellissis server** (Ubuntu com RTX 5070, `192.168.0.62`) — tem LM Studio + Ollama; API compatível OpenAI mas em contexto menor. Ver `~/.claude/projects/-Users-lucas/memory/project_intellissis_server.md`. Exige VPN/LAN (não está no Tailscale do Lucas).
+3. **Adiar a tarefa** — se não for urgente, muitas vezes é o caminho certo. Delegação de tarefa mal-recortada sob pressão produz código ruim que dá mais trabalho depois.
+
+### Regra para o assistente
+
+Se o `ssh` ou o `curl :1234` falhar na primeira tentativa, **não retentar em loop silencioso**. Reporte ao Lucas imediatamente, com o sintoma exato (timeout? porta fechada? service inativo?) e a ação recomendada. Polling automático esperando o Ancalagon "voltar" desperdiça contexto e só mascara o problema.
+
 ---
 
 ## Boas práticas para quem recebe uma tarefa
