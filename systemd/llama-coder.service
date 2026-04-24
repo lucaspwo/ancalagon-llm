@@ -1,6 +1,6 @@
 [Unit]
 Description=llama.cpp server - Qwen3-Coder-30B (MoE, n-cpu-moe=12, 100%% attention on GPU)
-Conflicts=llama-qwen36.service lmstudio.service
+Conflicts=llama-qwen36.service llama-gemma4.service lmstudio.service
 After=network-online.target
 Wants=network-online.target
 
