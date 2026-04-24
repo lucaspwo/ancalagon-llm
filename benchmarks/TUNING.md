@@ -58,7 +58,9 @@ Qwen3-Coder 30B-A3B, `llama-bench` tg128 @ sem ctx loaded (VRAM só pesos):
 
 **Em produção com 32K ctx** (KV ocupa ~860 MiB extra): `ncmoe=10` é o pico seguro (81.5 tok/s, 15.5 GiB VRAM, 500 MiB folga). `ncmoe=8` OOM com 32K; só cabe com 16K.
 
-O service usa `ncmoe=12` pensando em headroom maior (pico do bench, mas como ctx real em uso costuma ser bem menor que 32K, na prática opera próximo do pico).
+O service usa `ncmoe=12` pensando em headroom maior (pico do bench).
+
+**Em produção com 64K ctx** (desde que Claude Code system prompt + tools consome ~32K e 32K não dava margem pro user content): testado `ncmoe=12 + ctx=65536 + KV q4/q4` — cabe em **15.7 GiB / 175 MiB livres**, com 75.7 tok/s em prompt de 400 tokens (perda de ~5% vs 32K pelo KV cache maior). Esta é a config atual do `llama-coder.service`.
 
 ## 3. ubatch sweep
 

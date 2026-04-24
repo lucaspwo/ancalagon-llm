@@ -43,7 +43,7 @@ Makefile                   # make install|status|coder|qwen36|off|logs
 - **Services mutuamente exclusivos** (`Conflicts=`) em vez de um único parametrizado. systemd garante atomicamente que só um roda — parametrizado exigiria lógica manual de stop/start e abriria janela de OOM.
 - **Porta 1234 nos dois** (não 1234/1235). Clientes existentes não mudam URL; só um service ativo por vez faz conflito impossível.
 - **Não habilitados por default** (`systemctl enable` não foi feito). VRAM é compartilhada com outras tarefas eventuais; usuário invoca sob demanda.
-- **`--n-cpu-moe 12`** no coder. Flag de llama.cpp que o LM Studio não expõe: coloca só experts do MoE na CPU (attention/norm 100% GPU). Pico em `-ncmoe=12` com headroom; em produção com 32K ctx real ncmoe=10 seria o pico seguro, mas ctx em uso é quase sempre menor.
+- **`--n-cpu-moe 12`** no coder. Flag de llama.cpp que o LM Studio não expõe: coloca só experts do MoE na CPU (attention/norm 100% GPU). Pico empírico em `-ncmoe=12` no llama-bench; com 64K ctx em uso real, operando a ~76 tok/s (175 MiB livres na GPU).
 - **KV q4_0 no coder, q8_0 no qwen36**. Testado: no qwen3.6-27b com offload parcial, KV q4 causa fallback CUDA catastrófico (1 tok/s). No coder MoE com quase tudo na GPU, q4 funciona e economiza VRAM. **Nunca K≠V** — assimetria causa fallback em qualquer modelo.
 - **TQ3_4S em vez de Q4_K_M** no qwen3.6. 13 GB cabe 100% GPU; qualidade indistinguível (testei em prompt com bug de concorrência + clock drift, identifica os 3 bugs críticos igual ao Q4_K_M).
 - **Caminho absoluto** `/home/lucas/.local/bin/lmswitch` nos aliases do Mac. SSH não-interativo ignora `~/.local/bin` do PATH.
@@ -97,12 +97,20 @@ Medido em `benchmarks/TUNING.md`. Hardware: Ryzen 5 7600X + RTX 4070 Ti SUPER.
 
 | Service | tok/s gen | pp tok/s | GPU util | Power | VRAM |
 |---|---|---|---|---|---|
-| llama-coder | 81.5 (prompt 32K) / ~95 (prompt curto) | ~1850 | 36% | 101W | 15.5 GiB |
+| llama-coder (64K ctx) | 75.7 (com KV quase cheio) / ~95 (prompt curto) | ~1850 | 36% | 101W | 15.7 GiB (175 MiB livres) |
 | llama-qwen36 | 36.8 | 1266 | 96% | 292W | 14.8 GiB |
 
 Cross-machine via Tailscale: 96.4 tok/s gen / 255ms round-trip em prompts pequenos.
 
-Se `make status` + um bench curto (5-par quantum entanglement, 400 tokens) der menos de **60 tok/s no coder** ou **25 tok/s no qwen36**, há regressão — checar primeiro: `nvidia-smi` (GPU ocupada por outro processo?), `journalctl --user -u llama-$MODELO.service` (erro na boot do service), versão do llama.cpp (recompilação do fork pode ter quebrado).
+Se `make status` + um bench curto (5-par quantum entanglement, 400 tokens) der menos de **55 tok/s no coder** ou **25 tok/s no qwen36**, há regressão — checar primeiro: `nvidia-smi` (GPU ocupada por outro processo?), `journalctl --user -u llama-$MODELO.service` (erro na boot do service), versão do llama.cpp (recompilação do fork pode ter quebrado).
+
+### Por que 64K ctx no coder e não mais?
+
+Testado: `-c 65536` com ncmoe=12, KV q4/q4 usa **15.7 GiB / 175 MiB livres**. Subir para 96K ou 128K vai dar OOM. Se precisar de mais ctx:
+- reduzir ncmoe (ex: `ncmoe=16` libera ~600 MiB pro KV mas perde ~10% tok/s)
+- aceitar que alguns modelos simplesmente não cabem 128K em 16 GB com Q4_K_M
+
+O system prompt do Claude Code + tools consome ~32K. Com 64K ctx isso deixa 32K para user content — confortável para conversas longas e leitura de arquivos médios.
 
 ## Convenções
 
