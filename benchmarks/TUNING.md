@@ -119,3 +119,52 @@ Para calibrar o que é "GPU trabalhando de verdade", rodei Qwen3.5-9B Q4_K_M (7.
 - tok/s: 90.5
 
 Os modelos grandes em offload parcial do LM Studio ficavam em 30-34% util / 70-95W — confirmação objetiva de que CPU era gargalo. TQ3_4S 100% GPU hoje: 96.5% util / 292W, ainda melhor que o 9B (que é pequeno demais pra saturar compute).
+
+## 7. Gemma 4 26B-A4B-it Q4_K_M — primeiro benchmark (2026-04-24)
+
+Modelo novo adicionado como terceiro preset (`llama-gemma4.service`, alternativa ao coder). llama.cpp upstream, config **idêntica à do `llama-coder`** como ponto de partida:
+
+```
+-c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 16 --jinja
+```
+
+### Medições
+
+Prompt curto ("Explain quantum entanglement in exactly 5 paragraphs", 400 out):
+
+| Métrica | Valor |
+|---|---|
+| Gen tok/s | **57.2** |
+| Prefill tok/s (24-tok prompt) | 126 |
+| GPU util pico | 41% |
+| VRAM usada | 10.0 GiB (10016 MiB) |
+| VRAM livre | 5.9 GiB (5905 MiB) |
+| Power pico | 83 W |
+
+Prefill longo (12.015 tokens, prompt repetitivo):
+
+| Métrica | Valor |
+|---|---|
+| Gen tok/s (após prefill) | 49.2 |
+| Prefill tok/s | **1939.7** |
+| VRAM usada | 10.1 GiB (10064 MiB) |
+| VRAM livre | 5.8 GiB (5849 MiB) |
+
+### Comparação com `llama-coder` no mesmo config
+
+| | gen tok/s (curto) | VRAM usada | VRAM livre |
+|---|---|---|---|
+| llama-coder (Qwen3-Coder-30B-A3B) | 78 | 15.4 GiB | 559 MiB |
+| **llama-gemma4 (Gemma 4 26B-A4B)** | **57** | **10.0 GiB** | **5905 MiB** |
+
+Gemma 4 é ~27% mais lento em geração (consistente com 4B active vs 3B active — mais compute por token) mas usa **5.4 GiB a MENOS** de VRAM no mesmo config.
+
+### Oportunidade de tuning (não aplicada neste commit)
+
+Com 5.9 GiB livres, `ncmoe=16` está folgado demais para esse modelo — muitos experts na CPU sem necessidade. Baixar ncmoe para algo como **8 ou 4** deveria mover experts de volta pra GPU e ganhar tok/s (a regra "cada bump de ctx exige bump proporcional de ncmoe" vale invertida: com ctx já cabendo, menos ncmoe = mais GPU = mais tok/s, até onde VRAM aguentar).
+
+Teste empírico pendente. Regra do repo: ship com config funcional, otimizar em PR separado após medir.
+
+### Threshold de regressão
+
+Piso sugerido: **40 tok/s gen** no prompt curto (57 × 0.7). Abaixo disso, investigar: `nvidia-smi` (VRAM ocupada por outro processo?), versão do llama.cpp upstream, consistência do modelo GGUF.
