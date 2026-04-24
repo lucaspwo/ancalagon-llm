@@ -55,9 +55,12 @@ make install     # scp units + lmswitch, daemon-reload no Ancalagon
 make status      # probe do service ativo + health na :1234
 make coder       # sobe qwen3-coder
 make qwen36      # sobe qwen3.6 TQ3 (mata coder)
-make off         # para tudo
+make off         # para services (mantém máquina ligada)
+make sleep       # para services + suspende o sistema (wake via WoL)
 make logs        # journalctl -f do service ativo
 ```
+
+`make sleep` depende de entrada `NOPASSWD: ALL` para o usuário `lucas` em `/etc/sudoers.d/lucas-nopasswd` no Ancalagon. É decisão consciente — acesso à máquina é de uso pessoal. Se algum dia o Ancalagon for compartilhado, revisar essa permissão antes.
 
 Idempotente — `make install` reexecutado sobrescreve units + wrapper sem efeitos colaterais.
 

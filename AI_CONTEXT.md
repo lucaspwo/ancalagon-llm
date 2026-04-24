@@ -56,8 +56,9 @@ Dois services mutuamente exclusivos (`Conflicts=`), ambos na :1234. LM Studio se
 
 - Services rodando com `ctx=96K` no coder, `ctx=32K` no qwen36
 - Documentação em 3 arquivos: `README.md` (arquitetura), `CLAUDE.md` (visão para futuras sessões Claude), `docs/delegation.md` (charter para delegação do cloud para Ancalagon)
-- Mac `.zshrc` tem aliases `llcoder`/`llq36`/`lloff`/`llstatus`/`lllogs` (controle) e `srl-coder`/`srl-tq`/`srl` (entrada no Claude Code)
+- Mac `.zshrc` tem aliases `llcoder`/`llq36`/`lloff`/`llsleep`/`llstatus`/`lllogs` (controle) e `srl-coder`/`srl-tq`/`srl` (entrada no Claude Code)
 - `lmstudio.service` stopped + disabled no Ancalagon (conflito de VRAM e porta com os llama services)
+- `/etc/sudoers.d/lucas-nopasswd` concede `NOPASSWD: ALL` ao usuário `lucas` — usado por `lmswitch sleep` e facilita manutenção via SSH. Uso pessoal, máquina não compartilhada.
 
 ## Como testar uma mudança
 

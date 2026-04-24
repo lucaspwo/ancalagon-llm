@@ -116,7 +116,7 @@ Ancalagon é dual-boot Windows + Ubuntu. Há pelo menos quatro estados em que a 
 
 | Sintoma | Causa provável | Ação |
 |---|---|---|
-| `ssh Ancalagon_Ubuntu-Tailnet` dá timeout (>5s) | Máquina bootada no **Windows**, ou desligada, ou offline | Pedir ao Lucas bootar no Ubuntu — não há workaround remoto |
+| `ssh Ancalagon_Ubuntu-Tailnet` dá timeout (>5s) | Máquina bootada no **Windows**, desligada, ou **suspensa** (`llsleep`) | Suspensa: mandar magic packet WoL do Mac (Lucas já tem setup via Tailscale). Windows/desligada: requer acesso físico |
 | `ssh` conecta mas `llstatus` mostra serviços `inactive` + `:1234 not responding` | Ubuntu up, services não subiram (boot limpo — eles não são `enabled`) | `llcoder` ou `llq36`, aguardar health OK (~20-60s) |
 | `llstatus` mostra service `active` mas `:1234 not responding` | Service crashou entre start e ready, ou mmap lento em reboot frio | `lloff && llcoder`; se persistir, `lllogs` para ver o erro |
 | Resposta HTTP 400 `exceed_context_size` | Prompt maior que ctx do service (atual: 96K) | Reduzir o prompt; considerar se o recorte foi bom; não reinicia o service |

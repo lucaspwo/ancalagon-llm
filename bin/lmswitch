@@ -8,11 +8,12 @@ COMMAND="${1:-status}"
 
 usage() {
   cat <<EOF
-Usage: lmswitch {coder|qwen36|off|status|logs}
+Usage: lmswitch {coder|qwen36|off|sleep|status|logs}
 
-  coder    — start upstream llama.cpp with Qwen3-Coder-30B-A3B (MoE, ncmoe=12)
+  coder    — start upstream llama.cpp with Qwen3-Coder-30B-A3B (MoE, ncmoe=16)
   qwen36   — start TQ3 fork with Qwen3.6-27B-TQ3_4S (100% GPU)
   off      — stop any active llama server
+  sleep    — stop services and suspend the system (wake via WoL)
   status   — show service states + health probe on :$PORT
   logs     — tail journal of the currently active llama server
 EOF
@@ -45,7 +46,7 @@ case "$COMMAND" in
   coder)
     systemctl --user stop llama-qwen36.service 2>/dev/null || true
     systemctl --user start llama-coder.service
-    wait_ready llama-coder.service "qwen3-coder (ncmoe=12)"
+    wait_ready llama-coder.service "qwen3-coder (ncmoe=16)"
     ;;
   qwen36|qwen3.6|tq3)
     systemctl --user stop llama-coder.service 2>/dev/null || true
@@ -56,6 +57,16 @@ case "$COMMAND" in
     systemctl --user stop llama-coder.service 2>/dev/null || true
     systemctl --user stop llama-qwen36.service 2>/dev/null || true
     echo "All llama services stopped"
+    ;;
+  sleep|suspend)
+    systemctl --user stop llama-coder.service 2>/dev/null || true
+    systemctl --user stop llama-qwen36.service 2>/dev/null || true
+    echo "Suspending system (wake with WoL)..."
+    # Detach so the SSH connection doesn't block the suspend call.
+    # sudo -n requires the NOPASSWD entry in /etc/sudoers.d/ for user lucas.
+    nohup sudo -n systemctl suspend >/dev/null 2>&1 &
+    disown
+    sleep 1
     ;;
   status)
     for svc in llama-coder llama-qwen36 lmstudio; do

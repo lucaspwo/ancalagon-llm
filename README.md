@@ -125,6 +125,7 @@ export LCC_HOST="100.91.10.22"
 alias llcoder='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch coder'
 alias llq36='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch qwen36'
 alias lloff='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch off'
+alias llsleep='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch sleep'
 alias llstatus='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch status'
 alias lllogs='ssh -t "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch logs'
 export ANCALAGON_LLM_URL="http://${LCC_HOST}:1234/v1"
@@ -147,9 +148,14 @@ llcoder && srl-coder
 # Thinking/análise com reasoning (TQ3, ~37 tok/s, 100% GPU)
 llq36 && srl-tq
 
-# Liberar GPU
+# Liberar GPU (service parado, sistema ligado)
 lloff
+
+# Suspender o sistema inteiro (usa WoL do Mac para acordar)
+llsleep
 ```
+
+O `llsleep` exige entrada NOPASSWD no `/etc/sudoers.d/` do Ancalagon. Depois do wake via WoL os services **não sobem automaticamente** (`enabled` continua off) — rodar `llcoder` ou `llq36` conforme o caso.
 
 **Por que `srl-coder` usa `--backend remote` e não `--backend remote-llama`?**
 `remote-llama` sobe uma *nova* instância via SSH com flags default (`-ngl 99` apenas — sem `--n-cpu-moe`). Para o Qwen3-Coder 30B MoE isso dá OOM ou inferência muito lenta. `remote` apenas conecta ao server existente, aproveitando as flags tuned do `llama-coder.service` (`--n-cpu-moe 16`, KV q4/q4, 96K ctx). Mesma razão pela qual o modelo **não aparece no listing do `srl`**: o `local-claude` lista só `$REMOTE_MODELS_DIR=~/models/gguf/` e o Qwen3-Coder vive em `~/.lmstudio/models/...` — mas isso é irrelevante quando se usa `srl-coder`, porque ele nem tenta listar, só conecta ao :1234.
