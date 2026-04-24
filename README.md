@@ -155,6 +155,20 @@ lloff
 llsleep
 ```
 
+### Variante `_vpn` (via Mac Mini do Ricardo como bridge)
+
+Para casos onde SSH direto do Mac para `Ancalagon_Ubuntu-Tailnet` não está viável (rede restrita, hop específico), existe o par simétrico via Mac Mini `100.91.10.28` (mesma LAN física do Ancalagon):
+
+```zsh
+alias wakepc_vpn='ssh -t lucas@100.91.10.28 "zsh -ilc wakepc"'
+alias llsleep_vpn='ssh -o ConnectTimeout=10 lucas@100.91.10.28 \
+  "ssh -o ConnectTimeout=5 lucas@192.168.1.8 /home/lucas/.local/bin/lmswitch sleep"'
+```
+
+O Mac Mini faz broadcast WoL na LAN (único lugar onde magic packet alcança o Ancalagon) e, pra suspend, SSH via IP local `192.168.1.8`. Dependência: Mac Mini ligado + chave SSH do `100.91.10.28` instalada para `lucas@192.168.1.8` (foi instalado em 2026-04-24).
+
+### Pré-requisitos no Ancalagon
+
 O `llsleep` exige três pré-requisitos no Ancalagon, aplicados por `make install-system`:
 - `/etc/sudoers.d/lucas-nopasswd` (NOPASSWD — feito manualmente na primeira vez)
 - `nvidia-suspend/resume/hibernate.service` habilitados (driver `nvidia-open` falha suspend sem eles)
