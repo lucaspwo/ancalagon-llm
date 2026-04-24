@@ -24,27 +24,33 @@ Medições feitas em **2026-04-24**. Config atual: coder ctx=96K ncmoe=16, qwen3
 
 **Qwen36 TQ3 satura a GPU** (288/285W, ocasionalmente excedendo TGP nominal dentro da margem de boost). O modelo TQ3_4S cabe 100% em VRAM, atenção e experts todos na GPU, inferência linear no compute da 4070 Ti SUPER. Este é o **pior caso de consumo** no setup atual — qualquer config futura não deve ultrapassar isso muito.
 
-## Custo estimado por hora de uso
+## Custo por hora de uso
 
-Tarifa residencial típica de Lucas: estimar ~R$ 0,80/kWh (ajustar conforme conta real).
+Tarifa real da conta de energia do Lucas (componentes reguladas, **antes de impostos**):
+- Consumo TUSD: **R$ 0,57337503/kWh**
+- Consumo TE: **R$ 0,41305269/kWh**
+- **Total regulado: R$ 0,98642772/kWh**
 
-| Cenário (GPU apenas) | Power médio | Custo/h | Custo/dia (8h ativo) |
-|---|---|---|---|
-| Dormente / desligado | 22W | R$ 0,018 | R$ 0,14 |
-| Coder idle o dia todo | 26W | R$ 0,021 | R$ 0,17 |
-| Coder inferindo 100% do tempo | 101W | R$ 0,081 | R$ 0,65 |
-| Qwen36 inferindo 100% do tempo | 288W | R$ 0,230 | R$ 1,84 |
+Impostos (ICMS, PIS/COFINS, bandeira tarifária) adicionam tipicamente 20-30% — o valor "de parede" efetivo fica entre **R$ 1,18 e R$ 1,28/kWh**. Os números abaixo usam a tarifa regulada; multiplicar por ~1,25 para aproximar o valor na fatura.
+
+| Cenário (GPU apenas) | Power médio | Custo/h | Custo/dia (8h) | Custo/mês (24/7) |
+|---|---|---|---|---|
+| Dormente / desligado | 22W | R$ 0,022 | R$ 0,17 | R$ 15,62 |
+| Coder idle o dia todo | 26W | R$ 0,026 | R$ 0,21 | R$ 18,46 |
+| Coder inferindo 100% do tempo | 101W | R$ 0,100 | R$ 0,80 | R$ 71,73 |
+| Qwen36 inferindo 100% do tempo | 288W | R$ 0,284 | R$ 2,27 | R$ 204,53 |
 
 Observações:
-- Uso real é uma mistura de idle + bursts de inference, então o valor efetivo fica bem abaixo do "100% inferindo"
-- Adicionar ~50-100W para CPU/placa/fontes conforme o stress total do sistema para número de parede
-- Dual-boot com Windows desligado quando não usado: se Lucas deixar o Ancalagon ligado 24/7 em idle no Ubuntu, o custo baseline é ~R$ 15/mês só de GPU ociosa
+- Uso real é uma mistura de idle + bursts curtos de inference. Valor efetivo fica muito abaixo da linha "inferindo 100% do tempo".
+- **Manter coder carregado 24/7 em idle custa apenas +R$ 2,85/mês** sobre ter o Ancalagon ligado mas sem service (R$ 18,46 − R$ 15,62) — é essa diferença (não o total) que pesa na decisão de `lloff`.
+- Adicionar ~50-100W para CPU/placa/fontes para chegar ao consumo total do sistema.
+- Com impostos: todos os valores acima × ~1,25 para custo real na fatura.
 
 ## Quando vale a pena parar o service
 
 Regra prática, dada a diferença de apenas +3.6W entre modelo carregado e GPU dormente:
 
-- **Não vale a pena** `lloff` entre usos num mesmo dia de trabalho. Carregar o modelo de novo leva 20-60s e o custo energético de manter é <R$ 0,001/hora.
+- **Não vale a pena** `lloff` entre usos num mesmo dia de trabalho. Manter o modelo carregado custa apenas +R$ 0,004/h (diferença entre 26W e 22W dormente, tarifa regulada). Reload leva 20-60s — o trade em tempo humano é desfavorável.
 - **Vale a pena** `lloff` quando:
   - Sabe que vai ficar >2h sem usar
   - Quer liberar GPU para outro workload (jogo, fine-tuning, experimento)
