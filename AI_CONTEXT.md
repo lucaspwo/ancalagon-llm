@@ -40,15 +40,15 @@ Três services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio s
 | Arquivo | O que é | Onde vai |
 |---|---|---|
 | `systemd/llama-coder.service` | user unit — Qwen3-Coder 30B MoE, `--n-cpu-moe 16`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
-| `systemd/llama-qwen36.service` | user unit — Qwen3.6-27B TQ3_4S (fork), KV q8/q8, ctx 32K | idem |
+| `systemd/llama-qwen36.service` | user unit — Qwen3.6-27B TQ3_4S (fork), KV q8/q8, ctx 40K | idem |
 | `systemd/llama-gemma4.service` | user unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 16`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
 | `bin/lmswitch` | wrapper com subcomandos `coder\|qwen36\|gemma4\|off\|sleep\|status\|logs` | `~/.local/bin/` no Ancalagon |
 | `scripts/install.sh` | deploy idempotente via scp + daemon-reload | — (roda do Mac) |
-| `Makefile` | targets `install`/`coder`/`qwen36`/`off`/`status`/`logs` | — |
+| `Makefile` | targets `install`/`coder`/`qwen36`/`gemma4`/`off`/`sleep`/`wake`/`status`/`logs` | — |
 
 ## Decisões não-óbvias
 
-1. **Mesma porta 1234 nos dois services** (não 1234/1235). `Conflicts=` garante exclusão mútua, clientes existentes não trocam URL.
+1. **Mesma porta 1234 em todos os services** (não 1234/1235/1236). `Conflicts=` garante exclusão mútua, clientes existentes não trocam URL.
 2. **`--n-cpu-moe 16` no coder, não `--n-cpu-moe 12`** (que seria o pico de tok/s). Trocou-se ~2% de velocidade por +50% de contexto (64K → 96K), porque o system prompt do Claude Code sozinho já consome ~32K.
 3. **KV q4/q4 no coder, q8/q8 no qwen36**. No qwen3.6 com offload parcial, K≠V quebra CUDA flash-attn e cai para 1 tok/s. No coder MoE quase tudo na GPU, q4 simétrico funciona e libera VRAM.
 4. **TQ3_4S em vez de Q4_K_M no qwen3.6**. 13 GB cabe 100% GPU; qualidade perceptível equivalente (validado contra bug de rate-limiter com concorrência + clock drift).
@@ -58,7 +58,7 @@ Três services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio s
 
 - Services rodando com `ctx=96K` no coder, `ctx=40K` no qwen36, `ctx=96K` no gemma4 (alternativa ao coder)
 - Documentação em 3 arquivos: `README.md` (arquitetura), `CLAUDE.md` (visão para futuras sessões Claude), `docs/delegation.md` (charter para delegação do cloud para Ancalagon)
-- Mac `.zshrc` tem aliases `llcoder`/`llq36`/`lloff`/`llsleep`/`llstatus`/`lllogs` (controle) e `srl-coder`/`srl-tq`/`srl` (entrada no Claude Code)
+- Mac `.zshrc` tem aliases `llcoder`/`llq36`/`llgemma4`/`lloff`/`llsleep`/`llstatus`/`lllogs` (controle) e `srl-coder`/`srl-tq`/`srl` (entrada no Claude Code)
 - `lmstudio.service` stopped + disabled no Ancalagon (conflito de VRAM e porta com os llama services)
 - `/etc/sudoers.d/lucas-nopasswd` concede `NOPASSWD: ALL` ao usuário `lucas` — usado por `lmswitch sleep` e facilita manutenção via SSH. Uso pessoal, máquina não compartilhada.
 - Suspend/WoL validado ciclo completo em 2026-04-24: `llsleep` → S3 real → `wakeonlan` na LAN → resume (uptime preservado). Exigiu configurar `nvidia-suspend/resume/hibernate.service` (habilitar) + netplan `wakeonlan: true` na eno1.
@@ -71,7 +71,7 @@ Três services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio s
 make install
 
 # Restart do service afetado
-make coder     # ou make qwen36
+make coder     # ou make qwen36, make gemma4
 
 # Verificar saúde
 make status
@@ -80,6 +80,7 @@ make status
 # Thresholds de regressão:
 #   coder: <55 tok/s = regressão
 #   qwen36: <25 tok/s = regressão
+#   gemma4: <40 tok/s = regressão
 ```
 
 ## Próximos passos potenciais

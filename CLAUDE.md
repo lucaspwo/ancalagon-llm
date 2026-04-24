@@ -32,18 +32,18 @@ systemd/
   llama-qwen36.service     # Qwen3.6-27B-TQ3_4S, fork turbo-tan/llama.cpp-tq3
   llama-gemma4.service     # Gemma 4 26B-A4B-it Q4_K_M, --n-cpu-moe 16
 bin/
-  lmswitch                 # wrapper {coder|qwen36|off|status|logs}
+  lmswitch                 # wrapper {coder|qwen36|gemma4|off|sleep|status|logs}
 scripts/
   install.sh               # scp + daemon-reload via Tailscale
 benchmarks/
   TUNING.md                # dados empíricos (KV quant, ncmoe, TQ3, GPU saturada)
-Makefile                   # make install|status|coder|qwen36|off|logs
+Makefile                   # make install|status|coder|qwen36|gemma4|off|sleep|wake|logs
 ```
 
 ## Decisões de design
 
 - **Services mutuamente exclusivos** (`Conflicts=`) em vez de um único parametrizado. systemd garante atomicamente que só um roda — parametrizado exigiria lógica manual de stop/start e abriria janela de OOM.
-- **Porta 1234 nos dois** (não 1234/1235). Clientes existentes não mudam URL; só um service ativo por vez faz conflito impossível.
+- **Porta 1234 em todos** (não 1234/1235/1236). Clientes existentes não mudam URL; só um service ativo por vez faz conflito impossível.
 - **Não habilitados por default** (`systemctl enable` não foi feito). VRAM é compartilhada com outras tarefas eventuais; usuário invoca sob demanda.
 - **`--n-cpu-moe 16`** no coder. Flag de llama.cpp que o LM Studio não expõe: coloca só experts do MoE na CPU (attention/norm 100% GPU). Pico de tok/s ficaria em `ncmoe=12`, mas o service usa 16 porque 96K de ctx (necessário pro Claude Code) só cabe nessa config — ncmoe=12 topava em 64K de ctx e isso estourava com user content +30K-50K. Troca-se ~2% de tok/s (76→78) por +50% de ctx.
 - **KV q4_0 no coder, q8_0 no qwen36**. Testado: no qwen3.6-27b com offload parcial, KV q4 causa fallback CUDA catastrófico (1 tok/s). No coder MoE com quase tudo na GPU, q4 funciona e economiza VRAM. **Nunca K≠V** — assimetria causa fallback em qualquer modelo.

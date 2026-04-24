@@ -48,9 +48,9 @@ Porta **1234** (mesma do LM Studio — clientes existentes não precisam mudar U
 
 Upstream llama.cpp com Qwen3-Coder-30B-A3B-Instruct Q4_K_M. Flags:
 
-- `--n-cpu-moe 12` — primeiras 12 camadas de experts na CPU, restante + attention/norm na GPU
+- `--n-cpu-moe 16` — primeiras 16 camadas de experts na CPU, restante + attention/norm na GPU
 - `-c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 16` (ctx 96K; prefere-se ncmoe maior para caber contexto longo vs ncmoe=12 com ctx menor — ver TUNING.md)
-- Bind `0.0.0.0:1234`, `Conflicts=llama-qwen36.service lmstudio.service`
+- Bind `0.0.0.0:1234`, `Conflicts=llama-qwen36.service llama-gemma4.service lmstudio.service`
 
 ### `systemd/llama-qwen36.service`
 
