@@ -30,7 +30,7 @@ Porta **1234** (mesma do LM Studio — clientes OpenAI-compat existentes não tr
 systemd/
   llama-coder.service      # Qwen3-Coder-30B Q4_K_M, --n-cpu-moe 16
   llama-qwen36.service     # Qwen3.6-27B-TQ3_4S, fork turbo-tan/llama.cpp-tq3
-  llama-gemma4.service     # Gemma 4 26B-A4B-it Q4_K_M, --n-cpu-moe 16
+  llama-gemma4.service     # Gemma 4 26B-A4B-it Q4_K_M, --n-cpu-moe 8
 bin/
   lmswitch                 # wrapper {coder|qwen36|gemma4|off|sleep|status|logs}
 scripts/
@@ -81,7 +81,7 @@ Aliases do `.zshrc` do Glaurung — controle + entrada no Claude Code:
 ```
 llcoder && srl-coder    # qwen3-coder 30B MoE, ~80 tok/s
 llq36 && srl-tq         # qwen3.6-27b TQ3, ~37 tok/s, 100% GPU, com reasoning
-llgemma4                # gemma 4 26B-A4B MoE, ~57 tok/s (alternativa ao coder — ver TUNING §7)
+llgemma4                # gemma 4 26B-A4B MoE, ~84 tok/s (alternativa ao coder — ver TUNING §7)
 lloff                   # libera a GPU
 ```
 
@@ -114,11 +114,11 @@ Medido em `benchmarks/TUNING.md`. Hardware: Ryzen 5 7600X + RTX 4070 Ti SUPER.
 |---|---|---|---|---|---|
 | llama-coder (96K ctx, ncmoe=16) | 77.8 (prompt curto) / 1129 pp (96K prefill) | ~1130 | 36% | 100W | 15.4 GiB (559 MiB livres) |
 | llama-qwen36 | 36.8 | 1266 | 96% | 292W | 14.8 GiB |
-| llama-gemma4 (96K ctx, ncmoe=16) | 57 (prompt curto) / 49 (12K prefill) | 1940 (12K prefill) | 41% | 83W | 10.0 GiB (5.9 GiB livres — há folga) |
+| llama-gemma4 (96K ctx, ncmoe=8) | 84 (prompt curto) / 60 (60K prefill) | 2420 (60K prefill) | ~70% | 170W | 13.5 GiB (1.9 GiB livres — min sob 60K carga) |
 
 Cross-machine via Tailscale: 96.4 tok/s gen / 255ms round-trip em prompts pequenos.
 
-Se `make status` + um bench curto (5-par quantum entanglement, 400 tokens) der menos de **55 tok/s no coder**, **25 tok/s no qwen36** ou **40 tok/s no gemma4**, há regressão — checar primeiro: `nvidia-smi` (GPU ocupada por outro processo?), `journalctl --user -u llama-$MODELO.service` (erro na boot do service), versão do llama.cpp (recompilação do fork pode ter quebrado).
+Se `make status` + um bench curto (5-par quantum entanglement, 400 tokens) der menos de **55 tok/s no coder**, **25 tok/s no qwen36** ou **60 tok/s no gemma4**, há regressão — checar primeiro: `nvidia-smi` (GPU ocupada por outro processo?), `journalctl --user -u llama-$MODELO.service` (erro na boot do service), versão do llama.cpp (recompilação do fork pode ter quebrado).
 
 ### Ctx vs tok/s tradeoff (empírico)
 

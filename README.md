@@ -63,7 +63,7 @@ Fork `turbo-tan/llama.cpp-tq3` com Qwen3.6-27B-TQ3_4S (13 GB, cabe 100% GPU).
 
 Upstream llama.cpp com Gemma 4 26B-A4B-it Q4_K_M (16 GB em disco, MoE com 4B ativos). Mesmo binário do coder.
 
-- `-c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 16 --jinja` (config inicial espelha a do coder; medido após primeiro boot — 57 tok/s gen, 10 GiB VRAM usada, 5.9 GiB livre — há folga pra baixar ncmoe e ganhar tok/s, ver `benchmarks/TUNING.md` §7)
+- `-c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 8 --jinja` (ncmoe otimizado via sweep empírico — 84 tok/s gen curto, 60 tok/s após 60K prefill, 1.9 GiB livre mín sob carga; ver `benchmarks/TUNING.md` §7)
 - Bind `0.0.0.0:1234`, `Conflicts=llama-coder.service llama-qwen36.service lmstudio.service`
 
 ### `bin/lmswitch`

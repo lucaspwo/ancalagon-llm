@@ -1,5 +1,5 @@
 [Unit]
-Description=llama.cpp server - Gemma 4 26B-A4B-it (MoE, n-cpu-moe=16, KV q4_0)
+Description=llama.cpp server - Gemma 4 26B-A4B-it (MoE, n-cpu-moe=8, KV q4_0)
 Conflicts=llama-coder.service llama-qwen36.service lmstudio.service
 After=network-online.target
 Wants=network-online.target
@@ -8,7 +8,7 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=/home/lucas/git/llama.cpp/build/bin
 Environment=PATH=/usr/local/cuda/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/lucas/git/llama.cpp/build/bin/llama-server -m /home/lucas/.lmstudio/models/lmstudio-community/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-Q4_K_M.gguf --host 0.0.0.0 --port 1234 -c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 16 --jinja
+ExecStart=/home/lucas/git/llama.cpp/build/bin/llama-server -m /home/lucas/.lmstudio/models/lmstudio-community/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-Q4_K_M.gguf --host 0.0.0.0 --port 1234 -c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 8 --jinja
 Restart=on-failure
 RestartSec=3
 KillMode=mixed

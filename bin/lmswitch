@@ -12,7 +12,7 @@ Usage: lmswitch {coder|qwen36|gemma4|off|sleep|status|logs}
 
   coder    — start upstream llama.cpp with Qwen3-Coder-30B-A3B (MoE, ncmoe=16)
   qwen36   — start TQ3 fork with Qwen3.6-27B-TQ3_4S (100% GPU)
-  gemma4   — start upstream llama.cpp with Gemma 4 26B-A4B-it (MoE, ncmoe=16)
+  gemma4   — start upstream llama.cpp with Gemma 4 26B-A4B-it (MoE, ncmoe=8)
   off      — stop any active llama server
   sleep    — stop services and suspend the system (wake via WoL)
   status   — show service states + health probe on :$PORT
@@ -60,7 +60,7 @@ case "$COMMAND" in
     systemctl --user stop llama-coder.service 2>/dev/null || true
     systemctl --user stop llama-qwen36.service 2>/dev/null || true
     systemctl --user start llama-gemma4.service
-    wait_ready llama-gemma4.service "gemma-4-26b (ncmoe=16)"
+    wait_ready llama-gemma4.service "gemma-4-26b (ncmoe=8)"
     ;;
   off|stop)
     systemctl --user stop llama-coder.service 2>/dev/null || true

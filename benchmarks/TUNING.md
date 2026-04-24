@@ -122,7 +122,7 @@ Os modelos grandes em offload parcial do LM Studio ficavam em 30-34% util / 70-9
 
 ## 7. Gemma 4 26B-A4B-it Q4_K_M — primeiro benchmark (2026-04-24)
 
-Modelo novo adicionado como terceiro preset (`llama-gemma4.service`, alternativa ao coder). llama.cpp upstream, config **idêntica à do `llama-coder`** como ponto de partida:
+Modelo novo adicionado como terceiro preset (`llama-gemma4.service`, alternativa ao coder). llama.cpp upstream, config inicial **idêntica à do `llama-coder`** como ponto de partida (ajustada depois — ver sweep abaixo):
 
 ```
 -c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 16 --jinja
@@ -159,12 +159,34 @@ Prefill longo (12.015 tokens, prompt repetitivo):
 
 Gemma 4 é ~27% mais lento em geração (consistente com 4B active vs 3B active — mais compute por token) mas usa **5.4 GiB a MENOS** de VRAM no mesmo config.
 
-### Oportunidade de tuning (não aplicada neste commit)
+### Sweep de `--n-cpu-moe` (2026-04-24)
 
-Com 5.9 GiB livres, `ncmoe=16` está folgado demais para esse modelo — muitos experts na CPU sem necessidade. Baixar ncmoe para algo como **8 ou 4** deveria mover experts de volta pra GPU e ganhar tok/s (a regra "cada bump de ctx exige bump proporcional de ncmoe" vale invertida: com ctx já cabendo, menos ncmoe = mais GPU = mais tok/s, até onde VRAM aguentar).
+Após o primeiro boot confirmou-se que ncmoe=16 estava folgado demais (5.9 GiB livres ociosos). Sweep empírico completo mantendo ctx=98304 fixo:
 
-Teste empírico pendente. Regra do repo: ship com config funcional, otimizar em PR separado após medir.
+| ncmoe | gen tok/s (curto) | gen tok/s (pós-prefill longo) | VRAM usada idle | VRAM livre idle | VRAM livre min sob carga | Status |
+|---|---|---|---|---|---|---|
+| 0 | — | — | — | — | — | ❌ OOM (tentava alocar 16 GB no modelo, só há 15.9 GiB VRAM total) |
+| 4 | **101** | 64 (48K prefill) | 15.3 GiB | 271 MiB | **107 MiB** | ⚠️ Aguenta 48K mas folga apertada — risco real em 80-96K |
+| **8** | **84** | **60** (60K prefill) | **13.5 GiB** | **2115 MiB** | **1877 MiB** | ✅ **Sweet spot — 3.4x mais folga que coder opera** |
+| 12 | 63 | — | 11.6 GiB | 4051 MiB | — | Conservador, sem ganho sobre 16 proporcional à VRAM cedida |
+| 16 | 57 | 49 (12K prefill) | 10.0 GiB | 5905 MiB | — | Config inicial, subutiliza GPU |
+
+Tendência não-linear — 16→12 ganha 6 tok/s por 4 experts movidos pra GPU, 12→8 ganha 21 tok/s, 8→4 ganha 17 tok/s. Não é commutativa porque a computação MoE passa a saturar a GPU e o ganho marginal de mover mais experts diminui; o limite real é o **modelo completo cabendo em VRAM** (falha em ncmoe=0) mais margem para compute scratchpad e CUDA graphs.
+
+### Config adotado
+
+```
+-c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 8 --jinja
+```
+
+**Ganhos vs config inicial (ncmoe=16):**
+- +47% em geração curta (57 → 84 tok/s)
+- +22% em geração após prefill longo (49 → 60 tok/s)
+- +25% em prefill tok/s (1940 → 2420)
+- Mais rápido que o coder em gen curto (84 vs 78) — Gemma 4 26B A4B é mais lento por token isolado (4B active vs 3B) mas o offload menos agressivo compensa
+
+**Por que não ncmoe=4:** pp tok/s seria 3790 (2x!) e gen curto 101, mas no stress test com prefill de 48K sobraram apenas 107 MiB livres. Claude Code chegando em 80-90K provavelmente estoura compute buffer. Troca-se +20% de throughput por risco concreto de crash.
 
 ### Threshold de regressão
 
-Piso sugerido: **40 tok/s gen** no prompt curto (57 × 0.7). Abaixo disso, investigar: `nvidia-smi` (VRAM ocupada por outro processo?), versão do llama.cpp upstream, consistência do modelo GGUF.
+Piso sugerido: **60 tok/s gen** no prompt curto (84 × 0.7). Abaixo disso, investigar: `nvidia-smi` (VRAM ocupada por outro processo?), versão do llama.cpp upstream, consistência do modelo GGUF.
