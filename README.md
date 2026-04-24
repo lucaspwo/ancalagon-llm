@@ -48,7 +48,7 @@ Porta **1234** (mesma do LM Studio — clientes existentes não precisam mudar U
 Upstream llama.cpp com Qwen3-Coder-30B-A3B-Instruct Q4_K_M. Flags:
 
 - `--n-cpu-moe 12` — primeiras 12 camadas de experts na CPU, restante + attention/norm na GPU
-- `-c 65536 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12` (ctx 64K — system prompt do Claude Code + tool schemas já consomem ~32K; 32K deixava zero margem pro user content)
+- `-c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 16` (ctx 96K; prefere-se ncmoe maior para caber contexto longo vs ncmoe=12 com ctx menor — ver TUNING.md)
 - Bind `0.0.0.0:1234`, `Conflicts=llama-qwen36.service lmstudio.service`
 
 ### `systemd/llama-qwen36.service`
@@ -152,7 +152,7 @@ lloff
 ```
 
 **Por que `srl-coder` usa `--backend remote` e não `--backend remote-llama`?**
-`remote-llama` sobe uma *nova* instância via SSH com flags default (`-ngl 99` apenas — sem `--n-cpu-moe`). Para o Qwen3-Coder 30B MoE isso dá OOM ou inferência muito lenta. `remote` apenas conecta ao server existente, aproveitando as flags tuned do `llama-coder.service` (`--n-cpu-moe 12`, KV q4/q4, 64K ctx). Mesma razão pela qual o modelo **não aparece no listing do `srl`**: o `local-claude` lista só `$REMOTE_MODELS_DIR=~/models/gguf/` e o Qwen3-Coder vive em `~/.lmstudio/models/...` — mas isso é irrelevante quando se usa `srl-coder`, porque ele nem tenta listar, só conecta ao :1234.
+`remote-llama` sobe uma *nova* instância via SSH com flags default (`-ngl 99` apenas — sem `--n-cpu-moe`). Para o Qwen3-Coder 30B MoE isso dá OOM ou inferência muito lenta. `remote` apenas conecta ao server existente, aproveitando as flags tuned do `llama-coder.service` (`--n-cpu-moe 16`, KV q4/q4, 96K ctx). Mesma razão pela qual o modelo **não aparece no listing do `srl`**: o `local-claude` lista só `$REMOTE_MODELS_DIR=~/models/gguf/` e o Qwen3-Coder vive em `~/.lmstudio/models/...` — mas isso é irrelevante quando se usa `srl-coder`, porque ele nem tenta listar, só conecta ao :1234.
 
 ## `benchmarks/`
 
