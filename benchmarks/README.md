@@ -3,6 +3,7 @@
 Dados empíricos coletados durante o tuning que resultou nos services deste repo.
 
 - **TUNING.md** — análise consolidada: impacto de KV quant, sweep `-ncmoe`, ubatch, threads, TQ3 vs Q4_K_M.
+- **POWER.md** — consumo de energia (GPU) por estado: dormente, idle com modelo carregado, inference ativa. Inclui regra prática de quando vale a pena `lloff`.
 
 Resumos vivem em `/Users/lucas/.claude/projects/-Users-lucas/memory/project_ancalagon_ubuntu.md` (memória Claude).
 

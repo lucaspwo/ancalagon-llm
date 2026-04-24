@@ -152,6 +152,7 @@ Regras que valem sempre:
 - [`README.md`](README.md) — arquitetura detalhada, ganhos medidos, instalação
 - [`docs/delegation.md`](docs/delegation.md) — charter cloud↔Ancalagon + boas práticas universais + tratamento de offline
 - [`benchmarks/TUNING.md`](benchmarks/TUNING.md) — dados empíricos por trás das configs
+- [`benchmarks/POWER.md`](benchmarks/POWER.md) — consumo de energia GPU por estado (dormente / idle / inference)
 
 ## O que NÃO está aqui
 

@@ -91,4 +91,5 @@ Não planejados, só registrados como ideias que surgiram durante o tuning:
 - [`CLAUDE.md`](CLAUDE.md) — guia para futuras sessões do Claude Code; inclui threshold de regressão e "O que NÃO está aqui"
 - [`docs/delegation.md`](docs/delegation.md) — charter de delegação cloud↔Ancalagon, boas práticas universais para qualquer assistente, e tratamento de Ancalagon offline
 - [`benchmarks/TUNING.md`](benchmarks/TUNING.md) — dados empíricos que levaram às configs atuais (KV quant armadilha, sweep `-ncmoe`, TQ3 vs Q4_K_M)
+- [`benchmarks/POWER.md`](benchmarks/POWER.md) — consumo de energia GPU por estado operacional (22W dormente → 288W qwen36 inferindo)
 - `~/.claude/projects/-Users-lucas/memory/project_ancalagon_ubuntu.md` — memória Claude com histórico completo de setup do Ancalagon (drivers NVIDIA, MOK, compilação llama.cpp, modelos)
