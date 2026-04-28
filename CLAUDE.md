@@ -2,14 +2,14 @@
 
 ## Visão Geral
 
-Setup do Ancalagon (Ubuntu Server 24.04 dual-boot, RTX 4070 Ti SUPER 16 GB VRAM) como servidor LLM dedicado. Substitui LM Studio por `llama.cpp` nativo controlado por systemd, com dois presets mutuamente exclusivos. Consumido do Mac (Glaurung) via Tailscale em `100.91.10.22:1234`.
+Setup do Ancalagon (Ubuntu Server 24.04 dual-boot, RTX 4070 Ti SUPER 16 GB VRAM) como servidor LLM dedicado. Substitui LM Studio por `llama.cpp` nativo controlado por systemd, com dois presets mutuamente exclusivos. Consumido do Mac (Glaurung) via Tailscale em `100.64.0.10:1234`.
 
 **Source of truth** dos artefatos instalados em `~/.config/systemd/user/llama-*.service` e `~/.local/bin/lmswitch` no Ancalagon — sempre edite aqui e faça `make install`, nunca edite direto no remoto.
 
 ## Arquitetura
 
 ```
-Glaurung (Mac)                    Ancalagon-Ubuntu (100.91.10.22)
+Glaurung (Mac)                    Ancalagon-Ubuntu (100.64.0.10)
 aliases no .zshrc                  systemd --user (Conflicts= entre os quatro):
   llcoder  ──ssh──▶                llama-coder.service   (upstream)
   llq36    ──ssh──▶                llama-qwen36.service  (fork TQ3)
@@ -19,7 +19,7 @@ aliases no .zshrc                  systemd --user (Conflicts= entre os quatro):
                                         ▼
                                    :1234 (OpenAI-compat)
                                         ▲
-curl http://100.91.10.22:1234 ──────────┘
+curl http://100.64.0.10:1234 ──────────┘
 ```
 
 Porta **1234** (mesma do LM Studio — clientes OpenAI-compat existentes não trocam URL).

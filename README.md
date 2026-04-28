@@ -2,7 +2,7 @@
 
 Setup do Ancalagon (Ubuntu Server 24.04 dual-boot) como servidor LLM dedicado, otimizado para GPU RTX 4070 Ti SUPER (16 GB VRAM). Substitui LM Studio por `llama.cpp` nativo controlado por systemd, com três presets mutuamente exclusivos: Qwen3-Coder 30B (MoE upstream), Qwen3.6-27B (fork TQ3) e Gemma 4 26B-A4B-it (MoE upstream).
 
-Consumido do Mac (Glaurung) via Tailscale em `100.91.10.22:1234`.
+Consumido do Mac (Glaurung) via Tailscale em `100.64.0.10:1234`.
 
 ## Motivação
 
@@ -26,7 +26,7 @@ Cross-machine via Tailscale: 96.4 tok/s gen no coder, 255ms round-trip em prompt
 
 ```
 Glaurung (Mac)                    Ancalagon-Ubuntu
-                                  (100.91.10.22 / 192.168.1.8)
+                                  (100.64.0.10 / 192.168.1.8)
 aliases:                          systemd --user:
   llcoder  ──────ssh─────▶        llama-coder.service ──┐
   llq36    ──────ssh─────▶        llama-qwen36.service ─┤
@@ -37,7 +37,7 @@ aliases:                          systemd --user:
                                        ▼
                                   :1234 (OpenAI-compat API)
                                        ▲
-curl http://100.91.10.22:1234 ─────────┘
+curl http://100.64.0.10:1234 ─────────┘
 ```
 
 Porta **1234** (mesma do LM Studio — clientes existentes não precisam mudar URL).
@@ -129,7 +129,7 @@ Já aplicado no `~/.zshrc` do Glaurung:
 
 ```zsh
 export REMOTE_SSH_HOST="Ancalagon_Ubuntu-Tailnet"
-export LCC_HOST="100.91.10.22"
+export LCC_HOST="100.64.0.10"
 
 # Controle dos services (ssh remoto → lmswitch)
 alias llcoder='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch coder'
@@ -168,15 +168,15 @@ llsleep
 
 ### Variante `_vpn` (via Mac Mini do Ricardo como bridge)
 
-Para casos onde SSH direto do Mac para `Ancalagon_Ubuntu-Tailnet` não está viável (rede restrita, hop específico), existe o par simétrico via Mac Mini `100.91.10.28` (mesma LAN física do Ancalagon):
+Para casos onde SSH direto do Mac para `Ancalagon_Ubuntu-Tailnet` não está viável (rede restrita, hop específico), existe o par simétrico via Mac Mini `100.64.0.20` (mesma LAN física do Ancalagon):
 
 ```zsh
-alias wakepc_vpn='ssh -t lucas@100.91.10.28 "zsh -ilc wakepc"'
-alias llsleep_vpn='ssh -o ConnectTimeout=10 lucas@100.91.10.28 \
+alias wakepc_vpn='ssh -t lucas@100.64.0.20 "zsh -ilc wakepc"'
+alias llsleep_vpn='ssh -o ConnectTimeout=10 lucas@100.64.0.20 \
   "ssh -o ConnectTimeout=5 lucas@192.168.1.8 /home/lucas/.local/bin/lmswitch sleep"'
 ```
 
-O Mac Mini faz broadcast WoL na LAN (único lugar onde magic packet alcança o Ancalagon) e, pra suspend, SSH via IP local `192.168.1.8`. Dependência: Mac Mini ligado + chave SSH do `100.91.10.28` instalada para `lucas@192.168.1.8` (foi instalado em 2026-04-24).
+O Mac Mini faz broadcast WoL na LAN (único lugar onde magic packet alcança o Ancalagon) e, pra suspend, SSH via IP local `192.168.1.8`. Dependência: Mac Mini ligado + chave SSH do `100.64.0.20` instalada para `lucas@192.168.1.8` (foi instalado em 2026-04-24).
 
 ### Pré-requisitos no Ancalagon
 

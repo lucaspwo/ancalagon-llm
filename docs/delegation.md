@@ -128,7 +128,7 @@ Ancalagon é dual-boot Windows + Ubuntu. Há pelo menos quatro estados em que a 
 ssh -o ConnectTimeout=5 Ancalagon_Ubuntu-Tailnet 'uptime && systemctl --user is-active llama-coder.service'
 
 # 2. Porta 1234 responde?
-curl -m 3 -fs http://100.91.10.22:1234/health && echo OK
+curl -m 3 -fs http://100.64.0.10:1234/health && echo OK
 ```
 
 ### Fallbacks quando Ancalagon não estiver disponível

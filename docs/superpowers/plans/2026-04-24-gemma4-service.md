@@ -475,9 +475,9 @@ Se falhar por erro de template jinja: remover `--jinja` do ExecStart, repetir in
 Run:
 
 ```bash
-curl -fs http://100.91.10.22:1234/health
+curl -fs http://100.64.0.10:1234/health
 echo
-curl -fs http://100.91.10.22:1234/v1/models | head -c 300
+curl -fs http://100.64.0.10:1234/v1/models | head -c 300
 ```
 
 Expected: `{"status":"ok"}` + JSON listando o modelo carregado (id contém "gemma").
@@ -549,7 +549,7 @@ Expected: ready em :1234.
 Run (do Mac):
 
 ```bash
-time curl -s http://100.91.10.22:1234/v1/chat/completions \
+time curl -s http://100.64.0.10:1234/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "gemma",
@@ -570,7 +570,7 @@ Run (do Mac):
 
 ```bash
 python3 -c "print('Explain quantum entanglement. ' * 2000)" > /tmp/big-prompt.txt
-time curl -s http://100.91.10.22:1234/v1/chat/completions \
+time curl -s http://100.64.0.10:1234/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d "$(jq -Rs '{model:"gemma",messages:[{role:"user",content:.}],max_tokens:50,stream:false}' /tmp/big-prompt.txt)" \
   | jq -r '.usage'
@@ -753,7 +753,7 @@ alias llgemma4='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch gemma4'
 Trecho atual:
 
 ```
-Glaurung (Mac)                    Ancalagon-Ubuntu (100.91.10.22)
+Glaurung (Mac)                    Ancalagon-Ubuntu (100.64.0.10)
 aliases no .zshrc                  systemd --user (Conflicts= entre os três):
   llcoder  ──ssh──▶                llama-coder.service   (upstream)
   llq36    ──ssh──▶                llama-qwen36.service  (fork TQ3)
@@ -764,7 +764,7 @@ aliases no .zshrc                  systemd --user (Conflicts= entre os três):
 vira:
 
 ```
-Glaurung (Mac)                    Ancalagon-Ubuntu (100.91.10.22)
+Glaurung (Mac)                    Ancalagon-Ubuntu (100.64.0.10)
 aliases no .zshrc                  systemd --user (Conflicts= entre os quatro):
   llcoder  ──ssh──▶                llama-coder.service   (upstream)
   llq36    ──ssh──▶                llama-qwen36.service  (fork TQ3)

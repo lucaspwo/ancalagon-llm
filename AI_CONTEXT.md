@@ -6,7 +6,7 @@ Bootstrap de contexto para assistentes (humanos ou LLMs) que vão trabalhar nest
 
 ## O que este repo faz
 
-Provisionamento operacional do **Ancalagon-Ubuntu** como servidor LLM local dedicado, exposto via Tailscale em `100.91.10.22:1234` com API OpenAI-compatível. Substitui a instalação anterior baseada em LM Studio por `llama.cpp` nativo controlado por systemd.
+Provisionamento operacional do **Ancalagon-Ubuntu** como servidor LLM local dedicado, exposto via Tailscale em `100.64.0.10:1234` com API OpenAI-compatível. Substitui a instalação anterior baseada em LM Studio por `llama.cpp` nativo controlado por systemd.
 
 Não inclui: compilação do `llama.cpp`, download de modelos, configuração de Tailscale, ou código do Mac client (`local-claude`). Ver "O que NÃO está aqui" em [`CLAUDE.md`](CLAUDE.md).
 
@@ -15,7 +15,7 @@ Não inclui: compilação do `llama.cpp`, download de modelos, configuração de
 - Máquina: Ancalagon (dual-boot Windows + Ubuntu Server 24.04)
 - GPU: NVIDIA RTX 4070 Ti SUPER, 16 GB VRAM, CUDA 13.2
 - CPU: Ryzen 5 7600X (6c/12t)
-- Acesso: SSH por chave a `Ancalagon_Ubuntu-Tailnet` (Tailscale `100.91.10.22`, LAN `192.168.1.8`)
+- Acesso: SSH por chave a `Ancalagon_Ubuntu-Tailnet` (Tailscale `100.64.0.10`, LAN `192.168.1.8`)
 
 ## Arquitetura em uma tela
 
@@ -30,7 +30,7 @@ aliases .zshrc                         systemd --user (Conflicts= entre si):
   srl-tq                                    ▼
                                        :1234 (OpenAI-compat)
                                             ▲
-curl http://100.91.10.22:1234 ──────────────┘
+curl http://100.64.0.10:1234 ──────────────┘
 ```
 
 Três services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio service foi desabilitado em `2026-04-22` e **não deve voltar** — a razão está em [`benchmarks/TUNING.md`](benchmarks/TUNING.md) (LM Studio subutilizava GPU em ~35% de utilização vs 96% com llama.cpp nativo + quant TQ3).
