@@ -33,11 +33,13 @@ systemd/
   llama-gemma4.service     # Gemma 4 26B-A4B-it Q4_K_M, --n-cpu-moe 8
 bin/
   lmswitch                 # wrapper {coder|qwen36|gemma4|off|sleep|status|logs}
+  videoswitch              # toggle DPMS via /sys/class/graphics/fb0/blank
+  bootwin                  # reboot one-shot para Windows via efibootmgr -n
 scripts/
   install.sh               # scp + daemon-reload via Tailscale
 benchmarks/
   TUNING.md                # dados empíricos (KV quant, ncmoe, TQ3, GPU saturada)
-Makefile                   # make install|status|coder|qwen36|gemma4|off|sleep|wake|logs
+Makefile                   # make install|status|coder|qwen36|gemma4|off|sleep|wake|logs|video-{off,on,status}|bootwin
 ```
 
 ## Decisões de design
@@ -61,7 +63,17 @@ make gemma4      # sobe gemma-4-26b (mata os outros)
 make off         # para services (mantém máquina ligada)
 make sleep       # para services + suspende o sistema (wake via WoL)
 make logs        # journalctl -f do service ativo
+
+make video-off    # apaga saída de vídeo (DPMS), preserva inferência
+make video-on     # restaura saída de vídeo
+make video-status # mostra estado (last set persistido em /run/)
+make bootwin-dry  # mostra qual entry UEFI seria usada
+make bootwin      # reboot one-shot para Windows via efibootmgr -n
 ```
+
+`bootwin` é one-shot: o firmware UEFI consome o `BootNext` no próximo boot e o seguinte volta no default (Ubuntu). Para retornar do Windows: acessar via RealVNC (serviço, sobe no boot sem login) e rodar `shutdown /r /t 0`. Após o retorno, services `llama-*` continuam stopped — rodar `make coder`/`make gemma4` conforme caso.
+
+`videoswitch` opera em `/sys/class/graphics/fb0/blank` (FBIOBLANK via sysfs). O driver `nvidia-drm` retorna vazio na leitura, por isso o último valor escrito é persistido em `/run/videoswitch.state` para `status`. Estado zera no reboot — saída volta ligada por default. **Não testado fisicamente se o nível 4 (DPMS power off) realmente apaga os monitores no nvidia-drm fbdev** — se ficar só blanked sem cortar sinal, considerar fallback `setterm`/`vbetool`.
 
 `make sleep` depende de:
 - `/etc/sudoers.d/lucas-nopasswd` com `lucas ALL=(ALL) NOPASSWD: ALL` (decisão consciente — uso pessoal)

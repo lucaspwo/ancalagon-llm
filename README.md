@@ -66,6 +66,31 @@ Upstream llama.cpp com Gemma 4 26B-A4B-it Q4_K_M (16 GB em disco, MoE com 4B ati
 - `-c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 8 --jinja` (ncmoe otimizado via sweep empírico — 84 tok/s gen curto, 60 tok/s após 60K prefill, 1.9 GiB livre mín sob carga; ver `benchmarks/TUNING.md` §7)
 - Bind `0.0.0.0:1234`, `Conflicts=llama-coder.service llama-qwen36.service lmstudio.service`
 
+### `bin/videoswitch`
+
+Toggle da saída de vídeo do console (DPMS). Usado quando o Ancalagon roda headless mas tem monitores físicos conectados — evita imagem estática queimando o display. Escreve em `/sys/class/graphics/fb0/blank` (FBIOBLANK via sysfs); persiste o último estado em `/run/videoswitch.state` porque o driver `nvidia-drm` retorna vazio na leitura.
+
+```
+videoswitch off     # nivel 4 (DPMS power off)
+videoswitch on      # nivel 0 (unblank)
+videoswitch status  # mostra last set + leitura raw do fb0
+```
+
+Estado em `/run/` zera no reboot por design (saída volta ligada por default no boot).
+
+### `bin/bootwin`
+
+Reboot one-shot para Windows via `efibootmgr -n`. Lê dinamicamente o `BootNum` da entrada "Windows Boot Manager" (não hardcoded), seta `BootNext` no UEFI, reinicia. Firmware consome `BootNext` e o boot seguinte volta pra `BootOrder` default (Ubuntu) — não persiste.
+
+```
+bootwin --dry-run   # mostra qual entrada seria usada, sem reiniciar
+bootwin             # reinicia para Windows com 5s de janela pra Ctrl+C
+```
+
+Volta pro Linux: acessa Windows via RealVNC (já configurado como serviço, sobe sem login) e roda `shutdown /r /t 0` no prompt — Windows reinicia, GRUB cai no default Ubuntu.
+
+Após o retorno, services `llama-*` **não sobem sozinhos** (intencional — `enabled` continua off). Rodar `make coder`/`make gemma4`/etc. via SSH como em qualquer wake.
+
 ### `bin/lmswitch`
 
 Wrapper que:

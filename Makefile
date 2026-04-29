@@ -1,6 +1,6 @@
 REMOTE ?= Ancalagon_Ubuntu-Tailnet
 
-.PHONY: install install-system wake status coder qwen36 gemma4 off sleep logs
+.PHONY: install install-system wake status coder qwen36 gemma4 off sleep logs video-off video-on video-status bootwin bootwin-dry
 
 install:
 	@bash scripts/install.sh
@@ -32,3 +32,18 @@ sleep:
 
 logs:
 	@ssh -t $(REMOTE) /home/lucas/.local/bin/lmswitch logs
+
+video-off:
+	@ssh $(REMOTE) /home/lucas/.local/bin/videoswitch off
+
+video-on:
+	@ssh $(REMOTE) /home/lucas/.local/bin/videoswitch on
+
+video-status:
+	@ssh $(REMOTE) /home/lucas/.local/bin/videoswitch status
+
+bootwin-dry:
+	@ssh $(REMOTE) /home/lucas/.local/bin/bootwin --dry-run
+
+bootwin:
+	@ssh $(REMOTE) /home/lucas/.local/bin/bootwin

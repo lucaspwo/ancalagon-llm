@@ -15,9 +15,10 @@ scp "$REPO_DIR"/systemd/llama-coder.service "$REPO_DIR"/systemd/llama-qwen36.ser
   "$REPO_DIR"/systemd/llama-gemma4.service \
   "$REMOTE":/home/lucas/.config/systemd/user/
 
-echo "→ Copying lmswitch wrapper..."
-scp "$REPO_DIR"/bin/lmswitch "$REMOTE":/home/lucas/.local/bin/lmswitch
-ssh "$REMOTE" 'chmod +x /home/lucas/.local/bin/lmswitch'
+echo "→ Copying lmswitch / videoswitch / bootwin wrappers..."
+scp "$REPO_DIR"/bin/lmswitch "$REPO_DIR"/bin/videoswitch "$REPO_DIR"/bin/bootwin \
+  "$REMOTE":/home/lucas/.local/bin/
+ssh "$REMOTE" 'chmod +x /home/lucas/.local/bin/lmswitch /home/lucas/.local/bin/videoswitch /home/lucas/.local/bin/bootwin'
 
 echo "→ Reloading systemd..."
 ssh "$REMOTE" 'systemctl --user daemon-reload'

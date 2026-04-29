@@ -1,0 +1,61 @@
+#!/bin/bash
+# videoswitch — toggle console video output via FBIOBLANK on /sys/class/graphics/fb0/blank.
+# Used to stop static images on the three monitors connected to Ancalagon when working remote.
+set -euo pipefail
+
+FB=/sys/class/graphics/fb0/blank
+STATE=/run/videoswitch.state
+COMMAND="${1:-status}"
+
+usage() {
+  cat <<EOF
+Usage: videoswitch {off|on|status}
+
+  off    — power off video output (DPMS off, monitors enter standby)
+  on     — restore video output
+  status — show current blank state
+
+Operates on $FB (FBIOBLANK via sysfs). Requires sudo (NOPASSWD).
+EOF
+  exit 1
+}
+
+require_fb() {
+  if [ ! -e "$FB" ]; then
+    echo "ERROR: $FB not present (no fbdev emulation? check /dev/fb0 and DRM driver)" >&2
+    exit 1
+  fi
+}
+
+case "$COMMAND" in
+  off|0)
+    require_fb
+    sudo -n sh -c "echo 4 > $FB && echo off > $STATE"
+    echo "Video output: off (DPMS power off)"
+    ;;
+  on|1)
+    require_fb
+    sudo -n sh -c "echo 0 > $FB && echo on > $STATE"
+    echo "Video output: on"
+    ;;
+  status)
+    require_fb
+    fb_raw=$(cat "$FB" 2>/dev/null || true)
+    case "$fb_raw" in
+      0) fb_label="on (unblanked)" ;;
+      1) fb_label="blanked (normal)" ;;
+      2) fb_label="blanked (vsync suspend)" ;;
+      3) fb_label="blanked (hsync suspend)" ;;
+      4) fb_label="off (DPMS power off)" ;;
+      "") fb_label="(driver returns empty on read — use last-set state below)" ;;
+      *) fb_label="unknown ($fb_raw)" ;;
+    esac
+    last_set="(never set this boot)"
+    if [ -r "$STATE" ]; then
+      last_set=$(cat "$STATE")
+    fi
+    echo "fb0:      $fb_label"
+    echo "last set: $last_set"
+    ;;
+  *) usage ;;
+esac
