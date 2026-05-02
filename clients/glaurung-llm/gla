@@ -133,16 +133,40 @@ Utilities:
 USAGE
 }
 
+cmd_off() {
+  _kill_port "$LCPP_PORT"
+  _kill_port "$MLX_PORT"
+  echo "[gla] :$LCPP_PORT + :$MLX_PORT killed"
+}
+
+_status_port() {
+  local port="$1" label="$2"
+  if [ -n "$(_pids_on_port "$port")" ]; then
+    echo "=== :$port ($label) UP ==="
+    curl -s --max-time 3 "http://127.0.0.1:$port/v1/models" 2>/dev/null \
+      | python3 -m json.tool 2>/dev/null | head -15 \
+      || echo "(no /v1/models response)"
+  else
+    echo "=== :$port ($label) DOWN ==="
+  fi
+}
+
+cmd_status() {
+  _status_port "$LCPP_PORT" "llama.cpp"
+  echo
+  _status_port "$MLX_PORT" "mlx_lm"
+}
+
 cmd="${1:-}"
 case "$cmd" in
   gemma4|qwen36|gemma4-lcpp|qwen36-lcpp)
     echo "[gla] would start: $cmd (not implemented yet)"
     ;;
   off)
-    echo "[gla] would kill backends (not implemented yet)"
+    cmd_off
     ;;
   status)
-    echo "[gla] would show status (not implemented yet)"
+    cmd_status
     ;;
   -h|--help|"")
     usage
