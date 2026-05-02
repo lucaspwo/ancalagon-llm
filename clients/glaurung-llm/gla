@@ -156,10 +156,53 @@ cmd_status() {
   _status_port "$MLX_PORT" "mlx_lm"
 }
 
+cmd_run() {
+  local choice="$1"
+  local backend port model_id starter
+
+  case "$choice" in
+    gemma4)      backend=mlx;  port=$MLX_PORT;  starter=_start_mlx;          model_id="glaurung-mlx/lmstudio-community/gemma-4-26B-A4B-it-MLX-4bit" ;;
+    qwen36)      backend=mlx;  port=$MLX_PORT;  starter=_start_mlx;          model_id="glaurung-mlx/mlx-community/Qwen3.6-27B-4bit" ;;
+    gemma4-lcpp) backend=lcpp; port=$LCPP_PORT; starter=_start_lcpp_gemma4;  model_id="glaurung/gemma4" ;;
+    qwen36-lcpp) backend=lcpp; port=$LCPP_PORT; starter=_start_lcpp_qwen36;  model_id="glaurung/qwen36" ;;
+    *) echo "[gla] internal: cmd_run com choice inválido: $choice" >&2; return 1 ;;
+  esac
+
+  # Pre-flight (spec line 127): validar tudo ANTES de matar backend antigo
+  command -v opencode >/dev/null || { echo "[gla] opencode não está no PATH" >&2; return 1; }
+  command -v jq >/dev/null || { echo "[gla] jq não está no PATH" >&2; return 1; }
+  [ -f "$OPENCODE_CONFIG" ] || { echo "[gla] $OPENCODE_CONFIG não existe" >&2; return 1; }
+  jq empty "$OPENCODE_CONFIG" >/dev/null 2>&1 || { echo "[gla] $OPENCODE_CONFIG: JSON inválido" >&2; return 1; }
+
+  echo "[gla] mutex: matando :$LCPP_PORT + :$MLX_PORT…"
+  _mutex || return 1
+
+  local log_path
+  if [ "$backend" = mlx ]; then log_path="$MLX_LOG"; else log_path="$LCPP_LOG"; fi
+  echo "[gla] start: $backend ($model_id) — log: $log_path"
+  "$starter" || return 1
+
+  # Trap (spec line 55): se interrompido antes do exec opencode, matar backend
+  trap "_kill_port \"$port\"; echo '[gla] interrupted — backend killed' >&2; exit 130" INT TERM
+
+  echo "[gla] aguardando :$port responder /v1/models…"
+  if ! _wait_ready "$port" 120; then
+    _kill_port "$port"
+    return 1
+  fi
+
+  echo "[gla] gravando model em $OPENCODE_CONFIG…"
+  _set_opencode_model "$model_id" || { _kill_port "$port"; return 1; }
+
+  trap - INT TERM
+  echo "[gla] abrindo opencode (model=$model_id)…"
+  exec opencode
+}
+
 cmd="${1:-}"
 case "$cmd" in
   gemma4|qwen36|gemma4-lcpp|qwen36-lcpp)
-    echo "[gla] would start: $cmd (not implemented yet)"
+    cmd_run "$cmd"
     ;;
   off)
     cmd_off
