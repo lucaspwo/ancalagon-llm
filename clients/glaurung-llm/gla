@@ -100,6 +100,19 @@ _wait_ready() {
   return 1
 }
 
+_set_opencode_model() {
+  local model_id="$1"
+  [ -f "$OPENCODE_CONFIG" ] || { echo "[gla] $OPENCODE_CONFIG não existe" >&2; return 1; }
+  command -v jq >/dev/null || { echo "[gla] jq não está no PATH" >&2; return 1; }
+  local tmp="${OPENCODE_CONFIG}.tmp.$$"
+  if ! jq --arg m "$model_id" '.model = $m' "$OPENCODE_CONFIG" > "$tmp"; then
+    rm -f "$tmp"
+    echo "[gla] jq falhou ao processar $OPENCODE_CONFIG" >&2
+    return 1
+  fi
+  mv "$tmp" "$OPENCODE_CONFIG"
+}
+
 usage() {
   cat <<USAGE
 gla — single-command LLM backend + opencode launcher (Glaurung)
