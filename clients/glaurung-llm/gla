@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# gla — wrapper único: sobe backend LLM local + abre opencode com modelo selecionado.
+# Spec: docs/superpowers/specs/2026-05-01-gla-wrapper-design.md
+set -euo pipefail
+
+readonly LCPP_PORT=1235
+readonly MLX_PORT=1236
+readonly LCPP_LOG=/tmp/gla-lcpp.log
+readonly MLX_LOG=/tmp/gla-mlx.log
+readonly LCPP_BIN="$HOME/git/llama.cpp/build/bin/llama-server"
+readonly MLX_BIN="$HOME/.venvs/mlx/bin/mlx_lm.server"
+readonly LCPP_QWEN="$HOME/.lmstudio/models/lmstudio-community/Qwen3.6-27B-GGUF/Qwen3.6-27B-Q4_K_M.gguf"
+readonly LCPP_GEMMA="$HOME/.lmstudio/models/lmstudio-community/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-Q4_K_M.gguf"
+readonly OPENCODE_CONFIG="$HOME/.config/opencode/opencode.json"
+
+usage() {
+  cat <<USAGE
+gla — single-command LLM backend + opencode launcher (Glaurung)
+
+Usage: gla <command>
+
+Models (sobe backend + abre opencode com modelo selecionado):
+  gemma4        MLX (default), porta $MLX_PORT
+  qwen36        MLX (default), porta $MLX_PORT
+  gemma4-lcpp   llama.cpp Metal, porta $LCPP_PORT
+  qwen36-lcpp   llama.cpp Metal, porta $LCPP_PORT
+
+Utilities:
+  off           mata backends nas portas $LCPP_PORT + $MLX_PORT (não abre opencode)
+  status        mostra estado dos dois backends
+  -h, --help    esta mensagem
+USAGE
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  gemma4|qwen36|gemma4-lcpp|qwen36-lcpp)
+    echo "[gla] would start: $cmd (not implemented yet)"
+    ;;
+  off)
+    echo "[gla] would kill backends (not implemented yet)"
+    ;;
+  status)
+    echo "[gla] would show status (not implemented yet)"
+    ;;
+  -h|--help|"")
+    usage
+    [ -z "$cmd" ] && exit 1 || exit 0
+    ;;
+  *)
+    echo "[gla] unknown command: $cmd" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
