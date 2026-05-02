@@ -53,6 +53,51 @@ _mutex() {
   return "$ok"
 }
 
+_start_lcpp_qwen36() {
+  [ -x "$LCPP_BIN" ] || { echo "[gla] llama-server não encontrado em $LCPP_BIN" >&2; return 1; }
+  [ -f "$LCPP_QWEN" ] || { echo "[gla] modelo Qwen36 GGUF não encontrado em $LCPP_QWEN" >&2; return 1; }
+  nohup "$LCPP_BIN" -m "$LCPP_QWEN" \
+    --host 127.0.0.1 --port "$LCPP_PORT" \
+    -c 49152 -np 1 -ngl 99 -fa on \
+    --cache-type-k q8_0 --cache-type-v q8_0 \
+    --no-mmap --jinja --alias qwen36 \
+    > "$LCPP_LOG" 2>&1 &
+  disown
+}
+
+_start_lcpp_gemma4() {
+  [ -x "$LCPP_BIN" ] || { echo "[gla] llama-server não encontrado em $LCPP_BIN" >&2; return 1; }
+  [ -f "$LCPP_GEMMA" ] || { echo "[gla] modelo Gemma4 GGUF não encontrado em $LCPP_GEMMA" >&2; return 1; }
+  nohup "$LCPP_BIN" -m "$LCPP_GEMMA" \
+    --host 127.0.0.1 --port "$LCPP_PORT" \
+    -c 81920 -np 1 -ngl 99 -fa on \
+    --cache-type-k q8_0 --cache-type-v q8_0 \
+    --no-mmap --jinja --alias gemma4 \
+    > "$LCPP_LOG" 2>&1 &
+  disown
+}
+
+_start_mlx() {
+  [ -x "$MLX_BIN" ] || { echo "[gla] mlx_lm.server não encontrado em $MLX_BIN" >&2; return 1; }
+  nohup "$MLX_BIN" --host 127.0.0.1 --port "$MLX_PORT" --log-level INFO \
+    > "$MLX_LOG" 2>&1 &
+  disown
+}
+
+_wait_ready() {
+  local port="$1"
+  local timeout="${2:-30}"
+  local i
+  for i in $(seq 1 "$timeout"); do
+    if curl -sf --max-time 2 "http://127.0.0.1:$port/v1/models" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "[gla] backend on :$port not ready after ${timeout}s — see log" >&2
+  return 1
+}
+
 usage() {
   cat <<USAGE
 gla — single-command LLM backend + opencode launcher (Glaurung)
