@@ -88,6 +88,21 @@ Idempotente — `make install` reexecutado sobrescreve units + wrapper sem efeit
 
 ## Uso dos clients (Mac)
 
+### Comando único (`gla`)
+
+Wrapper local que faz tudo em um comando: mata backends rivais, sobe o backend correto, reescreve `opencode.json` e abre o TUI já com o modelo selecionado:
+
+```
+gla gemma4         # MLX, ~57 tok/s
+gla qwen36         # MLX, ~13.7 tok/s
+gla gemma4-lcpp    # llama.cpp Metal (override)
+gla qwen36-lcpp    # llama.cpp Metal (override)
+gla off            # libera GPU
+gla status         # estado dos backends
+```
+
+Instalado por `make install-gla` (symlink em `~/.local/bin/gla`). Substituto Mac do `lmswitch` do Ancalagon — mesma UX, mutex no nível de processo (não systemd). Spec: `docs/superpowers/specs/2026-05-01-gla-wrapper-design.md`.
+
 Aliases do `.zshrc` do Glaurung — controle + entrada no Claude Code:
 
 ```
