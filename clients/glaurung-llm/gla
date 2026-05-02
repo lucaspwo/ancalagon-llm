@@ -1,0 +1,221 @@
+#!/usr/bin/env bash
+# gla — wrapper único: sobe backend LLM local + abre opencode com modelo selecionado.
+# Spec: docs/superpowers/specs/2026-05-01-gla-wrapper-design.md
+set -euo pipefail
+
+readonly LCPP_PORT=1235
+readonly MLX_PORT=1236
+readonly LCPP_LOG=/tmp/gla-lcpp.log
+readonly MLX_LOG=/tmp/gla-mlx.log
+readonly LCPP_BIN="$HOME/git/llama.cpp/build/bin/llama-server"
+readonly MLX_BIN="$HOME/.venvs/mlx/bin/mlx_lm.server"
+readonly LCPP_QWEN="$HOME/.lmstudio/models/lmstudio-community/Qwen3.6-27B-GGUF/Qwen3.6-27B-Q4_K_M.gguf"
+readonly LCPP_GEMMA="$HOME/.lmstudio/models/lmstudio-community/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-Q4_K_M.gguf"
+readonly OPENCODE_CONFIG="$HOME/.config/opencode/opencode.json"
+
+_pids_on_port() {
+  lsof -tnP -iTCP:"$1" -sTCP:LISTEN 2>/dev/null || true
+}
+
+_kill_port() {
+  local port="$1"
+  local pids
+  pids=$(_pids_on_port "$port")
+  if [ -n "$pids" ]; then
+    # shellcheck disable=SC2086
+    kill $pids 2>/dev/null || true
+    sleep 1
+    pids=$(_pids_on_port "$port")
+    if [ -n "$pids" ]; then
+      # shellcheck disable=SC2086
+      kill -9 $pids 2>/dev/null || true
+    fi
+  fi
+}
+
+_wait_port_free() {
+  local port="$1"
+  local i
+  for i in 1 2 3 4 5; do
+    [ -z "$(_pids_on_port "$port")" ] && return 0
+    sleep 1
+  done
+  echo "[gla] port $port still busy after 5s (PIDs: $(_pids_on_port "$port"))" >&2
+  return 1
+}
+
+_mutex() {
+  _kill_port "$LCPP_PORT"
+  _kill_port "$MLX_PORT"
+  local ok=0
+  _wait_port_free "$LCPP_PORT" || ok=1
+  _wait_port_free "$MLX_PORT"  || ok=1
+  return "$ok"
+}
+
+_start_lcpp_qwen36() {
+  [ -x "$LCPP_BIN" ] || { echo "[gla] llama-server não encontrado em $LCPP_BIN" >&2; return 1; }
+  [ -f "$LCPP_QWEN" ] || { echo "[gla] modelo Qwen36 GGUF não encontrado em $LCPP_QWEN" >&2; return 1; }
+  nohup "$LCPP_BIN" -m "$LCPP_QWEN" \
+    --host 127.0.0.1 --port "$LCPP_PORT" \
+    -c 49152 -np 1 -ngl 99 -fa on \
+    --cache-type-k q8_0 --cache-type-v q8_0 \
+    --no-mmap --jinja --alias qwen36 \
+    > "$LCPP_LOG" 2>&1 &
+  disown
+}
+
+_start_lcpp_gemma4() {
+  [ -x "$LCPP_BIN" ] || { echo "[gla] llama-server não encontrado em $LCPP_BIN" >&2; return 1; }
+  [ -f "$LCPP_GEMMA" ] || { echo "[gla] modelo Gemma4 GGUF não encontrado em $LCPP_GEMMA" >&2; return 1; }
+  nohup "$LCPP_BIN" -m "$LCPP_GEMMA" \
+    --host 127.0.0.1 --port "$LCPP_PORT" \
+    -c 81920 -np 1 -ngl 99 -fa on \
+    --cache-type-k q8_0 --cache-type-v q8_0 \
+    --no-mmap --jinja --alias gemma4 \
+    > "$LCPP_LOG" 2>&1 &
+  disown
+}
+
+_start_mlx() {
+  # NOTE: mlx_lm.server /v1/models returns 200 immediately (lazy load);
+  # model loads on first /v1/chat/completions call (~6-7s).
+  [ -x "$MLX_BIN" ] || { echo "[gla] mlx_lm.server não encontrado em $MLX_BIN" >&2; return 1; }
+  nohup "$MLX_BIN" --host 127.0.0.1 --port "$MLX_PORT" --log-level INFO \
+    > "$MLX_LOG" 2>&1 &
+  disown
+}
+
+_wait_ready() {
+  local port="$1"
+  local timeout="${2:-30}"
+  local deadline=$(( SECONDS + timeout ))
+  while (( SECONDS < deadline )); do
+    if curl -sf --max-time 2 "http://127.0.0.1:$port/v1/models" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "[gla] backend on :$port not ready after ${timeout}s — see log" >&2
+  return 1
+}
+
+_set_opencode_model() {
+  local model_id="$1"
+  [ -f "$OPENCODE_CONFIG" ] || { echo "[gla] $OPENCODE_CONFIG não existe" >&2; return 1; }
+  command -v jq >/dev/null || { echo "[gla] jq não está no PATH" >&2; return 1; }
+  local tmp="${OPENCODE_CONFIG}.tmp.$$"
+  if ! jq --arg m "$model_id" '.model = $m' "$OPENCODE_CONFIG" > "$tmp"; then
+    rm -f "$tmp"
+    echo "[gla] jq falhou ao processar $OPENCODE_CONFIG" >&2
+    return 1
+  fi
+  mv "$tmp" "$OPENCODE_CONFIG"
+}
+
+usage() {
+  cat <<USAGE
+gla — single-command LLM backend + opencode launcher (Glaurung)
+
+Usage: gla <command>
+
+Models (sobe backend + abre opencode com modelo selecionado):
+  gemma4        MLX (default), porta $MLX_PORT
+  qwen36        MLX (default), porta $MLX_PORT
+  gemma4-lcpp   llama.cpp Metal, porta $LCPP_PORT
+  qwen36-lcpp   llama.cpp Metal, porta $LCPP_PORT
+
+Utilities:
+  off           mata backends nas portas $LCPP_PORT + $MLX_PORT (não abre opencode)
+  status        mostra estado dos dois backends
+  -h, --help    esta mensagem
+USAGE
+}
+
+cmd_off() {
+  _kill_port "$LCPP_PORT"
+  _kill_port "$MLX_PORT"
+  echo "[gla] :$LCPP_PORT + :$MLX_PORT killed"
+}
+
+_status_port() {
+  local port="$1" label="$2"
+  if [ -n "$(_pids_on_port "$port")" ]; then
+    echo "=== :$port ($label) UP ==="
+    curl -s --max-time 3 "http://127.0.0.1:$port/v1/models" 2>/dev/null \
+      | python3 -m json.tool 2>/dev/null | head -15 \
+      || echo "(no /v1/models response)"
+  else
+    echo "=== :$port ($label) DOWN ==="
+  fi
+}
+
+cmd_status() {
+  _status_port "$LCPP_PORT" "llama.cpp"
+  echo
+  _status_port "$MLX_PORT" "mlx_lm"
+}
+
+cmd_run() {
+  local choice="$1"
+  local backend port model_id starter log_path
+
+  case "$choice" in
+    gemma4)      backend=mlx;  port=$MLX_PORT;  starter=_start_mlx;          log_path="$MLX_LOG";  model_id="glaurung-mlx/lmstudio-community/gemma-4-26B-A4B-it-MLX-4bit" ;;
+    qwen36)      backend=mlx;  port=$MLX_PORT;  starter=_start_mlx;          log_path="$MLX_LOG";  model_id="glaurung-mlx/mlx-community/Qwen3.6-27B-4bit" ;;
+    gemma4-lcpp) backend=lcpp; port=$LCPP_PORT; starter=_start_lcpp_gemma4;  log_path="$LCPP_LOG"; model_id="glaurung/gemma4" ;;
+    qwen36-lcpp) backend=lcpp; port=$LCPP_PORT; starter=_start_lcpp_qwen36;  log_path="$LCPP_LOG"; model_id="glaurung/qwen36" ;;
+    *) echo "[gla] internal: cmd_run com choice inválido: $choice" >&2; return 1 ;;
+  esac
+
+  # Pre-flight (spec line 127): validar tudo ANTES de matar backend antigo
+  command -v opencode >/dev/null || { echo "[gla] opencode não está no PATH" >&2; return 1; }
+  command -v jq >/dev/null || { echo "[gla] jq não está no PATH" >&2; return 1; }
+  [ -f "$OPENCODE_CONFIG" ] || { echo "[gla] $OPENCODE_CONFIG não existe" >&2; return 1; }
+  jq empty "$OPENCODE_CONFIG" >/dev/null 2>&1 || { echo "[gla] $OPENCODE_CONFIG: JSON inválido" >&2; return 1; }
+
+  echo "[gla] mutex: matando :$LCPP_PORT + :$MLX_PORT…"
+  _mutex || return 1
+
+  echo "[gla] start: $backend ($model_id) — log: $log_path"
+  "$starter" || return 1
+
+  # Trap (spec line 55): se interrompido antes do exec opencode, matar backend
+  # 130 = 128 + SIGINT(2), shell convention for "killed by Ctrl-C"
+  trap "_kill_port \"$port\"; echo '[gla] interrupted — backend killed' >&2; exit 130" INT TERM
+
+  echo "[gla] aguardando :$port responder /v1/models…"
+  if ! _wait_ready "$port" 120; then
+    _kill_port "$port"
+    return 1
+  fi
+
+  echo "[gla] gravando model em $OPENCODE_CONFIG…"
+  _set_opencode_model "$model_id" || { _kill_port "$port"; return 1; }
+
+  trap - INT TERM
+  echo "[gla] abrindo opencode (model=$model_id)…"
+  exec opencode
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  gemma4|qwen36|gemma4-lcpp|qwen36-lcpp)
+    cmd_run "$cmd"
+    ;;
+  off)
+    cmd_off
+    ;;
+  status)
+    cmd_status
+    ;;
+  -h|--help|"")
+    usage
+    [ -z "$cmd" ] && exit 1 || exit 0
+    ;;
+  *)
+    echo "[gla] unknown command: $cmd" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
