@@ -78,6 +78,8 @@ _start_lcpp_gemma4() {
 }
 
 _start_mlx() {
+  # NOTE: mlx_lm.server /v1/models returns 200 immediately (lazy load);
+  # model loads on first /v1/chat/completions call (~6-7s).
   [ -x "$MLX_BIN" ] || { echo "[gla] mlx_lm.server não encontrado em $MLX_BIN" >&2; return 1; }
   nohup "$MLX_BIN" --host 127.0.0.1 --port "$MLX_PORT" --log-level INFO \
     > "$MLX_LOG" 2>&1 &
@@ -87,8 +89,8 @@ _start_mlx() {
 _wait_ready() {
   local port="$1"
   local timeout="${2:-30}"
-  local i
-  for i in $(seq 1 "$timeout"); do
+  local deadline=$(( SECONDS + timeout ))
+  while (( SECONDS < deadline )); do
     if curl -sf --max-time 2 "http://127.0.0.1:$port/v1/models" >/dev/null 2>&1; then
       return 0
     fi
