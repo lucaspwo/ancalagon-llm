@@ -47,8 +47,10 @@ _wait_port_free() {
 _mutex() {
   _kill_port "$LCPP_PORT"
   _kill_port "$MLX_PORT"
-  _wait_port_free "$LCPP_PORT" || return 1
-  _wait_port_free "$MLX_PORT" || return 1
+  local ok=0
+  _wait_port_free "$LCPP_PORT" || ok=1
+  _wait_port_free "$MLX_PORT"  || ok=1
+  return "$ok"
 }
 
 usage() {
