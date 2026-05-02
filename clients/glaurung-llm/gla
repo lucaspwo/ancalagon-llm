@@ -158,13 +158,13 @@ cmd_status() {
 
 cmd_run() {
   local choice="$1"
-  local backend port model_id starter
+  local backend port model_id starter log_path
 
   case "$choice" in
-    gemma4)      backend=mlx;  port=$MLX_PORT;  starter=_start_mlx;          model_id="glaurung-mlx/lmstudio-community/gemma-4-26B-A4B-it-MLX-4bit" ;;
-    qwen36)      backend=mlx;  port=$MLX_PORT;  starter=_start_mlx;          model_id="glaurung-mlx/mlx-community/Qwen3.6-27B-4bit" ;;
-    gemma4-lcpp) backend=lcpp; port=$LCPP_PORT; starter=_start_lcpp_gemma4;  model_id="glaurung/gemma4" ;;
-    qwen36-lcpp) backend=lcpp; port=$LCPP_PORT; starter=_start_lcpp_qwen36;  model_id="glaurung/qwen36" ;;
+    gemma4)      backend=mlx;  port=$MLX_PORT;  starter=_start_mlx;          log_path="$MLX_LOG";  model_id="glaurung-mlx/lmstudio-community/gemma-4-26B-A4B-it-MLX-4bit" ;;
+    qwen36)      backend=mlx;  port=$MLX_PORT;  starter=_start_mlx;          log_path="$MLX_LOG";  model_id="glaurung-mlx/mlx-community/Qwen3.6-27B-4bit" ;;
+    gemma4-lcpp) backend=lcpp; port=$LCPP_PORT; starter=_start_lcpp_gemma4;  log_path="$LCPP_LOG"; model_id="glaurung/gemma4" ;;
+    qwen36-lcpp) backend=lcpp; port=$LCPP_PORT; starter=_start_lcpp_qwen36;  log_path="$LCPP_LOG"; model_id="glaurung/qwen36" ;;
     *) echo "[gla] internal: cmd_run com choice inválido: $choice" >&2; return 1 ;;
   esac
 
@@ -177,12 +177,11 @@ cmd_run() {
   echo "[gla] mutex: matando :$LCPP_PORT + :$MLX_PORT…"
   _mutex || return 1
 
-  local log_path
-  if [ "$backend" = mlx ]; then log_path="$MLX_LOG"; else log_path="$LCPP_LOG"; fi
   echo "[gla] start: $backend ($model_id) — log: $log_path"
   "$starter" || return 1
 
   # Trap (spec line 55): se interrompido antes do exec opencode, matar backend
+  # 130 = 128 + SIGINT(2), shell convention for "killed by Ctrl-C"
   trap "_kill_port \"$port\"; echo '[gla] interrupted — backend killed' >&2; exit 130" INT TERM
 
   echo "[gla] aguardando :$port responder /v1/models…"
