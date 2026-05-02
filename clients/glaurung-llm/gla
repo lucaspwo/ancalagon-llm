@@ -13,6 +13,44 @@ readonly LCPP_QWEN="$HOME/.lmstudio/models/lmstudio-community/Qwen3.6-27B-GGUF/Q
 readonly LCPP_GEMMA="$HOME/.lmstudio/models/lmstudio-community/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-Q4_K_M.gguf"
 readonly OPENCODE_CONFIG="$HOME/.config/opencode/opencode.json"
 
+_pids_on_port() {
+  lsof -tnP -iTCP:"$1" -sTCP:LISTEN 2>/dev/null || true
+}
+
+_kill_port() {
+  local port="$1"
+  local pids
+  pids=$(_pids_on_port "$port")
+  if [ -n "$pids" ]; then
+    # shellcheck disable=SC2086
+    kill $pids 2>/dev/null || true
+    sleep 1
+    pids=$(_pids_on_port "$port")
+    if [ -n "$pids" ]; then
+      # shellcheck disable=SC2086
+      kill -9 $pids 2>/dev/null || true
+    fi
+  fi
+}
+
+_wait_port_free() {
+  local port="$1"
+  local i
+  for i in 1 2 3 4 5; do
+    [ -z "$(_pids_on_port "$port")" ] && return 0
+    sleep 1
+  done
+  echo "[gla] port $port still busy after 5s (PIDs: $(_pids_on_port "$port"))" >&2
+  return 1
+}
+
+_mutex() {
+  _kill_port "$LCPP_PORT"
+  _kill_port "$MLX_PORT"
+  _wait_port_free "$LCPP_PORT" || return 1
+  _wait_port_free "$MLX_PORT" || return 1
+}
+
 usage() {
   cat <<USAGE
 gla — single-command LLM backend + opencode launcher (Glaurung)
