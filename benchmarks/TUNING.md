@@ -289,3 +289,26 @@ já buildado — boot de recuperação se o 124 falhar. Kernel stack re-held no 
 - `dkms` → 3.4.1: framework de build; sem motivo para soltar.
 
 Nenhuma outra pendência — stack nvidia uniforme em 610, kernel em 124, demais updates de SO aplicados.
+
+## 11. Sanitização final — cuda-toolkit + dkms (2026-06-08)
+
+Zeradas as últimas pendências de apt (sistema sem nada upgradável).
+
+- **`dkms`** → 3.4.1. Módulos `nvidia/610.43.02` (110/111/124) **intactos** — upgrade do
+  framework não rebuilda nem remove módulos já instalados.
+- **`cuda-toolkit`** 13.2 → **13.3** (+2 config). Modelo side-by-side do CUDA: instala a
+  árvore `/usr/local/cuda-13.3` **ao lado** da 13.2 (não remove), repointa o alternative
+  `/usr/local/cuda` → 13.3. ~10 GB de disco (sobram ~40 GB).
+
+**Smoke test pós-toolkit:** os binários do llama.cpp (compilados contra 13.2) sobem e
+servem normalmente com o toolkit em 13.3 — coder a **84.2 tok/s**, geração coerente. Como
+previsto: nada removido + sonames `.so.13` compatíveis. **Sem reboot.**
+
+**Efeito colateral útil:** como `/usr/local/cuda` → 13.3, um futuro rebuild do llama.cpp
+(via `scripts/build-llama.sh`) usará o 13.3. O 13.2 fica para os binários atuais.
+
+### Estado final do Ancalagon (pós Fases 1-4)
+- llama.cpp upstream `8f83d6c` (v668), fork TQ3 `8ad7180` (v9674)
+- Driver NVIDIA **610.43.02**, kernel **6.8.0-124**, CUDA default **13.3** (13.2 retido)
+- `apt list --upgradable` = **0**. 27 pacotes held (nvidia/kernel/cuda/dkms pinados).
+- Kernel 6.8.0-111 retido no GRUB como fallback.
