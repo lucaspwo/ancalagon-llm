@@ -190,3 +190,37 @@ Tendência não-linear — 16→12 ganha 6 tok/s por 4 experts movidos pra GPU, 
 ### Threshold de regressão
 
 Piso sugerido: **60 tok/s gen** no prompt curto (84 × 0.7). Abaixo disso, investigar: `nvidia-smi` (VRAM ocupada por outro processo?), versão do llama.cpp upstream, consistência do modelo GGUF.
+
+## 8. Atualização do llama.cpp — Fase 1 (2026-06-08)
+
+Upstream `b76429a` (2026-04-22) → `8f83d6c` (2026-06-08, version 668), **667 commits**.
+Fork TQ3 `794c5dc` (2026-04-21) → `8ad7180` (2026-06-08, version 9674), **841 commits**
+(o fork rebaseou no upstream master de 2026-06-07).
+
+Método: prompt canônico `"Explain quantum entanglement in exactly 5 paragraphs"`,
+`n_predict=400`, `T=0.2`, melhor de 2 runs. Configs dos services intocadas (única
+variável = versão do binário). Backups `.bak-<commit>` mantidos no Anca para rollback.
+
+| Modelo | Baseline tok/s | Novo tok/s | Δ | Decisão |
+|---|---|---|---|---|
+| coder | 78.7 | 78.7¹ | ~0% | **mantido** |
+| gemma4 | 86.7 | 84.4 | −2.6% | **mantido** |
+| qwen36 TQ3 | 36.7 | 39.3 | **+7.0%** | **mantido** |
+
+¹ A 1ª medição do coder logo após boot deu 73.5 (−6.7%), mas era **cold-start**:
+remedição estável deu 78.0/78.7/79.9 (≈ baseline). Lição: descartar a 1ª medição
+pós-boot do service.
+
+Qualidade TQ3 (teste ratelimiter, 3 bugs críticos): **3/3 mantidos** — TOCTOU/lock
+granularity, `remaining()` sem lock + lista stale, e `time.time()` não-monotônico
+(o build novo sugeriu `time.monotonic()` explicitamente; o baseline desta run pegou
+só 2/3, dentro da variância de reasoning a T=0.2). **Quant TQ3 não degradou.**
+
+Nota operacional: o upstream recente reestruturou o `llama-server` em bibliotecas
+compartilhadas (`libllama-server-impl.so`, `libllama-common.so`, `libmtmd.so`) — o
+binário em `build/bin/llama-server` agora é fino (~18 KB) e resolve as `.so` irmãs via
+rpath. Os `.bak` antigos (binários autossuficientes de ~9-13 MB) seguem válidos para
+rollback. VRAM por modelo inalterada vs baseline.
+
+**Decisão: ambos os binários mantidos** (upstream e fork decididos independentemente,
+ambos ≥ 0.95× baseline; TQ3 ainda ganhou perf). Driver NVIDIA 595→610 fica para a Fase 2.
