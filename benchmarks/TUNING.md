@@ -256,3 +256,36 @@ com a MOK existente (Secure Boot OK). `nvidia-suspend/resume/hibernate` seguem e
 re-held (travada no 610). Rollback disponível: `.deb` do 595.71.05 em cache + repo serve 595.
 Justificativa do update foi higiene + suporte a modelos novos (perf ~0, como previsto) —
 não regrediu, então mantido.
+
+## 10. Updates de SO + migração de kernel — Fase 3 (2026-06-08)
+
+### Updates não-held aplicados (higiene, sem reboot)
+`apparmor` + `libapparmor1` (→ 4.0.1...0ubuntu0.24.04.7), `cloud-init` (→ 26.1-0ubuntu1~24.04.1),
+`firmware-sof-signed` (→ 2023.12.1-1ubuntu1.11), `telnet` + `inetutils-telnet` (→ 2.5-3ubuntu4.2).
+Aplicados via `apt install --only-upgrade` (sem soltar holds).
+
+### Migração de kernel `6.8.0-111` → `6.8.0-124`
+Driver 610 inalterado → **kernel é a única variável**. Baseline = números da Fase 2 (kernel 111).
+
+| Modelo | k111 tok/s | k124 tok/s (melhor) | Δ |
+|---|---|---|---|
+| coder | 83.2 | 84.9 | +2% |
+| gemma4 | 86.8 | 88.1 | +1.5% |
+| qwen36 TQ3 | 39.3 | 39.25 | ~0% |
+
+**Kernel não afeta a perf** (esperado) — números acompanham o 610. Variância nos MoE.
+
+**DKMS:** autoinstall do `nvidia/610.43.02` para 6.8.0-124 (build + assinatura MOK)
+disparado no `apt install` do kernel. `dkms status` lista 110/111/124.
+
+**Suspend/resume S3 no kernel 124:** `make sleep`/`make wake` (WoL) — resume em ~12s,
+`uptime -s` idêntico (S3 real), `nvidia-smi` limpo em 610. **OK no kernel novo.**
+
+**Fallback:** kernel 6.8.0-111 mantido instalado (entrada no GRUB) com módulo nvidia 610
+já buildado — boot de recuperação se o 124 falhar. Kernel stack re-held no 124.
+
+### Pendências remanescentes (held por decisão)
+- `cuda-toolkit` 13.2 → **13.3** (+2 config): só vale acoplado a rebuild do llama.cpp; isolado não muda nada.
+- `dkms` → 3.4.1: framework de build; sem motivo para soltar.
+
+Nenhuma outra pendência — stack nvidia uniforme em 610, kernel em 124, demais updates de SO aplicados.
