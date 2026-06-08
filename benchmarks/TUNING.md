@@ -224,3 +224,35 @@ rollback. VRAM por modelo inalterada vs baseline.
 
 **Decisão: ambos os binários mantidos** (upstream e fork decididos independentemente,
 ambos ≥ 0.95× baseline; TQ3 ainda ganhou perf). Driver NVIDIA 595→610 fica para a Fase 2.
+
+## 9. Atualização do driver NVIDIA — Fase 2 (2026-06-08)
+
+Driver `nvidia-open` `595.71.05` → `610.43.02` (repo CUDA ubuntu2404). Kernel mantido
+em `6.8.0-111` (holds do kernel preservados) e binários do llama.cpp inalterados
+(os da Fase 1) — **driver é a única variável**. Baseline = números da Fase 1 (driver 595).
+
+Método: mesmo prompt canônico, `n_predict=400`, `T=0.2`; descartado o cold-start
+pós-boot, melhor de 3 runs estáveis.
+
+| Modelo | Baseline 595 tok/s | 610 tok/s (melhor) | Δ | Decisão |
+|---|---|---|---|---|
+| coder | 78.7 | 83.2 | +5.7% | **mantido** |
+| gemma4 | 84.4 | 86.8 | +2.8% | **mantido** |
+| qwen36 TQ3 | 39.3 | 39.3 | ~0% | **mantido** |
+
+Leitura: o model 100% GPU (qwen36, bandwidth-bound) ficou **flat**, como esperado —
+banda de VRAM é hardware fixo. Os MoE-offload (coder/gemma4) mostraram leve ↑, no topo
+da faixa de variância; não tratar como ganho garantido. **Confirma a premissa da spec:
+ganho de perf do driver ≈ 0 neste hardware.** VRAM por modelo inalterada vs 595.
+
+**Suspend/resume S3 (preocupação específica do nvidia-open):** testado `make sleep` →
+`make wake` (WoL). Resume em ~12s, `uptime -s` idêntico (S3 real, não reboot), `nvidia-smi`
+volta limpo em 610. **O caminho frágil histórico está saudável no 610.**
+
+**DKMS:** módulos `nvidia/610.43.02` construídos para 6.8.0-110 e 6.8.0-111, assinados
+com a MOK existente (Secure Boot OK). `nvidia-suspend/resume/hibernate` seguem enabled.
+
+**Decisão: 610 mantido.** Sem regressão de perf, S3 funcional, DKMS+MOK ok. Stack nvidia
+re-held (travada no 610). Rollback disponível: `.deb` do 595.71.05 em cache + repo serve 595.
+Justificativa do update foi higiene + suporte a modelos novos (perf ~0, como previsto) —
+não regrediu, então mantido.
