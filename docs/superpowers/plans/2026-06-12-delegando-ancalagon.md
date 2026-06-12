@@ -12,6 +12,15 @@
 
 **Spec:** `docs/superpowers/specs/2026-06-12-delegando-ancalagon-design.md`
 
+**Gate results (2026-06-12, executados pelo controller):**
+- ✅ **Task 0** — shellcheck 0.11.0 instalado.
+- ✅ **P0 (Task 1)** — `local-claude --backend remote --host ancalagon-ubuntu -p` retornou `PONG`, exit 0. Caminho 2 viável (ponte de protocolo OK; tool-use validado na Task 5).
+- ✅ **Caminho 1 (Task 1)** — `curl :1234` retornou `PONG`.
+- ✅ **Host** — corrigido para MagicDNS `ancalagon-ubuntu` (o `100.64.0.10` da doc é fictício; IP real não vai no código).
+- ⚠️ **P1 (Task 2)** — Windows tem OpenSSH (confirmado pelo Lucas). `WINDOWS_REBOOT_CMD` preenchido, mas **NÃO-TESTADO** (nó Windows offline enquanto em Linux). Validar na próxima vez que a máquina estiver no Windows.
+
+Tasks 0–2 já concluídas; implementação começa na Task 3.
+
 ---
 
 ## Task 0: Pré-requisito — shellcheck no Mac
@@ -126,9 +135,9 @@ Create `skills/delegando-ancalagon/anc-delegate`:
 set -euo pipefail
 
 REMOTE="${ANC_REMOTE:-Ancalagon_Ubuntu-Tailnet}"
-HOST="${ANC_HOST:-100.64.0.10}"
+HOST="${ANC_HOST:-ancalagon-ubuntu}"  # MagicDNS Tailscale (resolve dinâmico; sem IP hardcoded)
 PORT="${ANC_PORT:-1234}"
-WIN_HOST="${ANC_WIN_HOST:-}"          # nó Tailscale do Windows (Task 2)
+WIN_HOST="${ANC_WIN_HOST:-ancalagon}" # nó Tailscale do Windows (MagicDNS)
 WAKE_MAC="${ANC_WAKE_MAC:-10:7C:61:45:D8:38}"
 DEFAULT_MODEL="coder"
 BOOT_TIMEOUT=120                       # s para SSH-Linux voltar após WoL/reboot
@@ -207,8 +216,9 @@ wake_and_wait() {
 
 Append — **preencher `WINDOWS_REBOOT_CMD` com o valor de `.p1-result`**:
 ```bash
-# Definido pelo resultado do GATE P1 (Task 2). Se vazio, não há canal headless.
-WINDOWS_REBOOT_CMD=""   # <-- substituir pela linha de skills/delegando-ancalagon/.p1-result
+# Definido pelo resultado do GATE P1 (Task 2): Windows tem OpenSSH ativo.
+# NÃO-TESTADO até a máquina estar bootada no Windows (nó offline quando em Linux).
+WINDOWS_REBOOT_CMD="ssh -o ConnectTimeout=5 ancalagon 'shutdown /r /t 0'"
 
 reboot_windows_to_linux() {
   if [[ -z "$WINDOWS_REBOOT_CMD" ]]; then
