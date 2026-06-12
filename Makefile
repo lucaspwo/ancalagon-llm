@@ -1,6 +1,6 @@
 REMOTE ?= Ancalagon_Ubuntu-Tailnet
 
-.PHONY: install install-system install-gla wake status coder qwen36 gemma4 off sleep logs video-off video-on video-status bootwin bootwin-dry
+.PHONY: install install-system install-gla install-skill wake status coder qwen36 gemma4 off sleep logs video-off video-on video-status bootwin bootwin-dry
 
 install:
 	@bash scripts/install.sh
@@ -14,6 +14,12 @@ install-gla:
 	@ln -sf $(CURDIR)/clients/glaurung-llm/gla $(HOME)/.local/bin/gla
 	@echo "installed: $(HOME)/.local/bin/gla -> $(CURDIR)/clients/glaurung-llm/gla"
 	@command -v gla >/dev/null && echo "gla in PATH" || echo "WARN: ~/.local/bin not in PATH; add 'export PATH=\$$HOME/.local/bin:\$$PATH' to ~/.zshrc"
+
+install-skill:
+	@mkdir -p $(HOME)/.claude/skills
+	@chmod +x $(CURDIR)/skills/delegando-ancalagon/anc-delegate
+	@ln -sfn $(CURDIR)/skills/delegando-ancalagon $(HOME)/.claude/skills/delegando-ancalagon
+	@echo "installed: $(HOME)/.claude/skills/delegando-ancalagon -> $(CURDIR)/skills/delegando-ancalagon"
 
 wake:
 	@wakeonlan 10:7C:61:45:D8:38
