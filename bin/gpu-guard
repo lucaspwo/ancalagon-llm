@@ -1,0 +1,50 @@
+#!/bin/bash
+# gpu-guard — watchdog térmico para a RTX 4070 Ti SUPER no Ancalagon.
+# Polling de nvidia-smi; escalonado: warning loga, critical sustentado corta o
+# service llama ativo. Proxy temp+throttle (sem sensor de conector 12VHPWR).
+set -euo pipefail
+
+INTERVAL="${GPU_GUARD_INTERVAL:-5}"        # s entre leituras
+WARN_TEMP="${GPU_GUARD_WARN_TEMP:-78}"     # °C — loga
+CRIT_TEMP="${GPU_GUARD_CRIT_TEMP:-84}"     # °C — candidato a corte
+HOLD="${GPU_GUARD_HOLD:-30}"               # s de critical sustentado p/ cortar
+# Runtime state em dir gravável pelo user service (XDG_RUNTIME_DIR=/run/user/<uid>).
+STATE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/gpu-guard.state"
+
+log() { printf '%s gpu-guard: %s\n' "$(date -Is)" "$*"; }
+
+crit_since=0
+
+active_llama() {
+  for s in llama-coder llama-qwen36 llama-gemma4; do
+    systemctl --user is-active --quiet "$s.service" && { echo "$s"; return; }
+  done
+}
+
+while true; do
+  read -r temp throttle < <(nvidia-smi \
+    --query-gpu=temperature.gpu,clocks_throttle_reasons.active \
+    --format=csv,noheader,nounits 2>/dev/null | tr -d ' ' | tr ',' ' ')
+  temp="${temp:-0}"
+  now=$(date +%s)
+
+  if (( temp >= CRIT_TEMP )); then
+    (( crit_since == 0 )) && crit_since=$now
+    held=$(( now - crit_since ))
+    printf 'CRITICAL temp=%s°C held=%ss throttle=%s\n' "$temp" "$held" "$throttle" > "$STATE"
+    if (( held >= HOLD )); then
+      svc="$(active_llama || true)"
+      log "CRITICAL sustentado ${held}s a ${temp}°C — parando ${svc:-nenhum}"
+      [[ -n "$svc" ]] && systemctl --user stop "$svc.service"
+      crit_since=0
+    fi
+  elif (( temp >= WARN_TEMP )); then
+    crit_since=0
+    printf 'WARN temp=%s°C throttle=%s\n' "$temp" "$throttle" > "$STATE"
+    log "WARN temp=${temp}°C throttle=${throttle}"
+  else
+    crit_since=0
+    printf 'OK temp=%s°C\n' "$temp" > "$STATE"
+  fi
+  sleep "$INTERVAL"
+done
