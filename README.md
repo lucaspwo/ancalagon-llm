@@ -113,6 +113,23 @@ Tempos de start observados:
 - coder (17 GB Q4_K_M): 57s primeira vez, ~20s com mmap cacheado
 - qwen36 (13 GB TQ3_4S): 26s
 
+### `bin/gpu-guard` + `systemd/gpu-guard.service`
+
+Watchdog térmico da GPU (user unit **persistente**, `enabled` no boot — diferente
+dos `llama-*` sob demanda). Faz polling de `nvidia-smi` (5s) e age escalonado:
+**WARN** (82°C) loga; **CRIT** (86°C) sustentado por 30s para o `llama-*.service`
+ativo. Proxy temp+throttle — `nvidia-smi` não expõe a temperatura do conector
+12VHPWR. Limites calibrados empiricamente (pico normal do die = 77°C sob 320W;
+ver `benchmarks/TUNING.md` §12). Deploy via `make install-system`.
+
+### `skills/delegando-ancalagon/`
+
+Skill global do Claude Code (Mac) para **delegação headless** do cloud ao
+Ancalagon, economizando tokens. O helper `anc-delegate` faz preflight
+(liga/acorda/sobe modelo) + dois caminhos: `gen` (curl one-shot) e `iter`
+(Claude Code headless no Mac com inferência remota). Instalada por
+`make install-skill`. Ver `docs/delegation.md` § "Delegação headless via skill".
+
 ## Instalação no Ancalagon
 
 Pré-requisitos já presentes (ver memória `project_ancalagon_ubuntu`):
