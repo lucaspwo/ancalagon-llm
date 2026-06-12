@@ -5,8 +5,12 @@
 set -euo pipefail
 
 INTERVAL="${GPU_GUARD_INTERVAL:-5}"        # s entre leituras
-WARN_TEMP="${GPU_GUARD_WARN_TEMP:-78}"     # °C — loga
-CRIT_TEMP="${GPU_GUARD_CRIT_TEMP:-84}"     # °C — candidato a corte
+# Limites calibrados empiricamente (2026-06-12, qwen36 a 320W/99% util):
+# pico normal do die = 77°C. WARN dá +5°C de margem; CRIT fica antes do HW
+# thermal slowdown (~87-88°C na AD103). Throttle 0x4 (SW Power Cap) é normal
+# sob carga plena — NÃO é sinal térmico. Ver benchmarks/TUNING.md §thermal.
+WARN_TEMP="${GPU_GUARD_WARN_TEMP:-82}"     # °C — loga (acima do pico normal 77)
+CRIT_TEMP="${GPU_GUARD_CRIT_TEMP:-86}"     # °C — candidato a corte
 HOLD="${GPU_GUARD_HOLD:-30}"               # s de critical sustentado p/ cortar
 # Runtime state em dir gravável pelo user service (XDG_RUNTIME_DIR=/run/user/<uid>).
 STATE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/gpu-guard.state"

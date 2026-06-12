@@ -312,3 +312,29 @@ previsto: nada removido + sonames `.so.13` compatíveis. **Sem reboot.**
 - Driver NVIDIA **610.43.02**, kernel **6.8.0-124**, CUDA default **13.3** (13.2 retido)
 - `apt list --upgradable` = **0**. 27 pacotes held (nvidia/kernel/cuda/dkms pinados).
 - Kernel 6.8.0-111 retido no GRUB como fallback.
+
+## 12. Calibração térmica do `gpu-guard` (2026-06-12)
+
+Medição para calibrar os limites do watchdog `gpu-guard` (`bin/gpu-guard`).
+Carga: qwen36 (TQ3) sob inferência contínua (~2 min, loop de geração), o pior
+caso térmico dos três services (maior util + power).
+
+| Métrica | Idle | Carga sustentada |
+|---|---|---|
+| Temp do die | 44-46°C | **75-77°C (pico 77)** |
+| Power | ~38W | **318-320W (pico 320)** |
+| GPU util | 0% | 99% |
+| Throttle reason | `0x0` | `0x4` (SW Power Cap) |
+
+**Observações:**
+- Power real medido = **320W**, acima dos 292W registrados na §6. A placa bate o
+  power cap (`throttle 0x4`) sob carga plena — `0x4` é SW Power Cap, comportamento
+  **normal**, não sinal térmico. Não confundir com `0x20`/`0x40` (thermal slowdown).
+- Pico do die = **77°C** — saudável (AD103 tolera ~88°C; Tjmax ~90°C).
+
+**Limites adotados no `gpu-guard`** (proxy temp+throttle — `nvidia-smi`/NVML não
+expõem temperatura do conector 12VHPWR; ver design da skill delegando-ancalagon):
+- `WARN_TEMP=82°C` — +5°C sobre o pico normal (77); sinaliza cooling degradado.
+- `CRIT_TEMP=86°C` sustentado por `HOLD=30s` → corta o `llama-*.service` ativo.
+  Fica antes do HW thermal slowdown (~87-88°C), com margem para o corte agir.
+- O default antigo (WARN 78) era próximo demais do pico normal — falsos positivos.
