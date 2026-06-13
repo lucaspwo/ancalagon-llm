@@ -126,9 +126,25 @@ gen() {
     model:$m, messages:[{role:"user",content:$c}],
     temperature:0.2, max_tokens:8192, stream:false
   }')"
-  curl -sf -m 600 "http://$HOST:$PORT/v1/chat/completions" \
-    -H 'Content-Type: application/json' -d "$payload" \
-  | jq -r '.choices[0].message.content'
+  local resp
+  resp="$(curl -sf -m 600 "http://$HOST:$PORT/v1/chat/completions" \
+    -H 'Content-Type: application/json' -d "$payload")" || {
+    log "ERRO: requisição à :$PORT falhou"; return 1; }
+
+  # Instrumentação: economia BRUTA do lado Ancalagon. O helper NÃO vê o custo de
+  # cloud de escrever o briefing nem de revisar/reaplicar.
+  local comp prompt_t content
+  comp="$(printf '%s' "$resp" | jq -r '.usage.completion_tokens // empty')"
+  prompt_t="$(printf '%s' "$resp" | jq -r '.usage.prompt_tokens // empty')"
+  content="$(printf '%s' "$resp" | jq -r '.choices[0].message.content')"
+  if [[ -n "$comp" && -n "$prompt_t" ]]; then
+    log "[anc] gen: gerados ${comp} tok (poupados do cloud) · briefing ${prompt_t} tok · economia BRUTA"
+  else
+    local est=$(( $(printf '%s' "$content" | wc -w) * 4 / 3 ))
+    log "[anc] gen: ~${est} tok gerados (~estimado, sem usage na resposta) · economia BRUTA"
+  fi
+
+  printf '%s\n' "$content"
 }
 
 iter() {
@@ -137,9 +153,26 @@ iter() {
   [[ -d "$cwd" ]] || { log "cwd inválido: $cwd"; return 1; }
   local prompt; prompt="$(cat "$briefing_file")"
   log "Disparando Claude Code headless em $cwd (inferência no Ancalagon)..."
-  ( cd "$cwd" && \
+  local raw out
+  raw="$( cd "$cwd" && \
     local-claude --backend remote --host "$HOST" --port "$PORT" \
-      -p "$prompt" --output-format json )
+      -p "$prompt" --output-format json )"
+  # local-claude --output-format json prepende "Model: ..." / "Server: ..." / "---"
+  # ao JSON no stdout; a última linha é o objeto JSON em si.
+  out="$(printf '%s\n' "$raw" | tail -n1)"
+
+  # Instrumentação: tokens processados LOCAL (na GPU do Ancalagon). O cloud paga
+  # só o briefing + a leitura deste resumo.
+  local in_t out_t
+  in_t="$(printf '%s' "$out" | jq -r '.usage.input_tokens // empty' 2>/dev/null)"
+  out_t="$(printf '%s' "$out" | jq -r '.usage.output_tokens // empty' 2>/dev/null)"
+  if [[ -n "$in_t" && -n "$out_t" ]]; then
+    log "[anc] iter: agente local processou ${in_t} in + ${out_t} out tok na GPU · cloud pagou só briefing + este resumo"
+  else
+    log "[anc] iter: usage indisponível na resposta"
+  fi
+
+  printf '%s\n' "$out"
 }
 
 health_snapshot() {
