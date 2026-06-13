@@ -59,6 +59,25 @@ Tarefas idênticas/repetitivas que não pedem planejamento:
 
 Esse modo nem sempre justifica passar pela sessão cloud primeiro. Pode-se escrever um script que invoca `curl :1234` diretamente.
 
+## Delegação headless via skill (`anc-delegate`)
+
+Os modos 1 e 2 acima podem ser orquestrados **headless** pelo Claude Code cloud
+via a skill `delegando-ancalagon` (`~/.claude/skills/delegando-ancalagon/`,
+instalada por `make install-skill`). O helper `anc-delegate` encapsula preflight
+(liga/acorda/sobe modelo) + dois caminhos:
+
+- `anc-delegate gen <briefing.md>` — **Caminho 1** (modo 1): `curl :1234`, geração
+  one-shot sem tools. O Claude cloud aplica o resultado e revisa o diff.
+- `anc-delegate iter <briefing.md> --cwd <repo>` — **Caminho 2** (modo 2): sobe um
+  Claude Code headless **no Mac** (tools reais) com inferência no Ancalagon. O
+  agente edita/roda sozinho; o cloud lê o resumo + `git diff`.
+
+O host resolve via MagicDNS Tailscale (`ancalagon-ubuntu`) — o `100.64.0.10` desta
+doc é fictício. Reboot Windows→Linux usa o nó `ancalagon` (OpenSSH no Windows;
+override `ANC_WIN_HOST`). Guard-rails (40K tokens, nunca desligar service, corte
+térmico do `gpu-guard`) estão na `SKILL.md`. Modelo default `coder`;
+`--model qwen36` para reasoning.
+
 ## Formato de briefing autocontido
 
 Quando delegar do cloud para Ancalagon, incluir:

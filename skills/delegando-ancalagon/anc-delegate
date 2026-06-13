@@ -1,0 +1,173 @@
+#!/bin/bash
+# anc-delegate — delega trabalho ao Ancalagon de forma headless (roda no Mac).
+# Caminho 1 (gen): curl :1234, geração sem tools.
+# Caminho 2 (iter): local-claude -p, Claude Code headless no Mac, inferência remota.
+set -euo pipefail
+
+REMOTE="${ANC_REMOTE:-Ancalagon_Ubuntu-Tailnet}"
+HOST="${ANC_HOST:-ancalagon-ubuntu}"  # MagicDNS Tailscale (resolve dinâmico; sem IP hardcoded)
+PORT="${ANC_PORT:-1234}"
+WIN_HOST="${ANC_WIN_HOST:-ancalagon}" # nó Tailscale do Windows (MagicDNS)
+WAKE_MAC="${ANC_WAKE_MAC:-10:7C:61:45:D8:38}"
+DEFAULT_MODEL="coder"
+BOOT_TIMEOUT=120                       # s para SSH-Linux voltar após WoL/reboot
+
+usage() {
+  cat <<EOF
+Usage: anc-delegate <command> [args]
+
+  preflight [--model M]              garante :$PORT saudável (escada SSH/WoL/reboot)
+  gen  <briefing.md> [--model M]     geração one-shot via curl (sem tools)
+  iter <briefing.md> [--cwd DIR] [--model M]
+                                     iteração via local-claude -p (Claude Code + tools)
+  health                             snapshot nvidia-smi + service ativo (JSON)
+
+  --model {coder|qwen36|gemma4}      força um service (default: usa o ativo, senão coder)
+EOF
+  exit 1
+}
+
+log() { printf '%s\n' "$*" >&2; }
+
+ssh_linux() { ssh -o ConnectTimeout=5 -o BatchMode=yes "$REMOTE" "$@" 2>/dev/null; }
+
+is_linux_up() { [[ "$(ssh_linux 'uname -s' || true)" == "Linux" ]]; }
+
+active_service() {
+  # shellcheck disable=SC2016
+  ssh_linux 'for s in llama-coder llama-qwen36 llama-gemma4; do
+    systemctl --user is-active --quiet "$s.service" && echo "$s" && break
+  done' || true
+}
+
+health_ok() { curl -fs -o /dev/null -m 5 "http://$HOST:$PORT/health" 2>/dev/null; }
+
+ensure_model() {
+  local want="$1"
+  local cur; cur="$(active_service)"
+  if [[ -n "$cur" ]]; then
+    log "Service ativo: $cur (não troco)"
+    health_ok && { log ":$PORT saudável"; return 0; }
+    log "Service $cur ativo mas :$PORT não responde — reiniciando via lmswitch"
+  fi
+  local sub="${want:-$DEFAULT_MODEL}"
+  log "Subindo $sub..."
+  ssh_linux "/home/lucas/.local/bin/lmswitch $sub" >&2
+  health_ok
+}
+
+wake_and_wait() {
+  log "Mandando magic packet WoL ($WAKE_MAC)..."
+  wakeonlan "$WAKE_MAC" >/dev/null 2>&1 || log "WARN: wakeonlan falhou"
+  log "Aguardando SSH-Linux voltar (até ${BOOT_TIMEOUT}s)..."
+  local waited=0
+  while (( waited < BOOT_TIMEOUT )); do
+    is_linux_up && { log "Linux up."; return 0; }
+    sleep 5; waited=$((waited+5)); printf '.' >&2
+  done
+  printf '\n' >&2
+  return 1
+}
+
+# Definido pelo GATE P1: Windows tem OpenSSH ativo.
+# NÃO-TESTADO até a máquina estar bootada no Windows (nó offline quando em Linux).
+WINDOWS_REBOOT_CMD="ssh -o ConnectTimeout=5 ancalagon 'shutdown /r /t 0'"
+
+reboot_windows_to_linux() {
+  if [[ -z "$WINDOWS_REBOOT_CMD" ]]; then
+    log "ERRO: Ancalagon parece estar no Windows e não há canal headless"
+    log "      configurado. Ação física necessária (reboot manual -> Ubuntu)."
+    return 2
+  fi
+  log "Detectado Windows — disparando reboot para Linux..."
+  eval "$WINDOWS_REBOOT_CMD" || { log "Reboot via Windows falhou"; return 2; }
+  wake_and_wait
+}
+
+preflight() {
+  local model="${1:-}"
+
+  if is_linux_up; then
+    ensure_model "$model" && return 0
+    log "ERRO: Linux up mas :$PORT não ficou saudável"; return 1
+  fi
+
+  log "SSH-Linux mudo — tentando WoL (suspenso/desligado?)..."
+  if wake_and_wait; then
+    ensure_model "$model" && return 0
+    log "ERRO: acordou mas :$PORT não ficou saudável"; return 1
+  fi
+
+  log "WoL não trouxe o Linux — verificando Windows..."
+  if [[ -n "$WIN_HOST" ]] && ssh -o ConnectTimeout=5 -o BatchMode=yes "$WIN_HOST" 'exit' 2>/dev/null; then
+    reboot_windows_to_linux || return $?
+    ensure_model "$model" && return 0
+    log "ERRO: pós-reboot :$PORT não ficou saudável"; return 1
+  fi
+
+  log "ERRO: Ancalagon inalcançável (não-Linux, sem Windows headless, sem WoL)."
+  log "      Ação física provável necessária. Não vou retentar em loop."
+  return 2
+}
+
+gen() {
+  local briefing_file="$1"
+  [[ -f "$briefing_file" ]] || { log "briefing não encontrado: $briefing_file"; return 1; }
+  local prompt; prompt="$(cat "$briefing_file")"
+  local approx_tokens=$(( $(printf '%s' "$prompt" | wc -c) / 4 ))
+  if (( approx_tokens > 40000 )); then
+    log "ERRO: briefing ~${approx_tokens} tokens (>40K). Recorte ruim — re-planeje."
+    return 1
+  fi
+  local model_id
+  model_id="$(curl -sf -m5 "http://$HOST:$PORT/v1/models" | jq -r '.data[0].id // "local"')"
+  local payload
+  payload="$(jq -n --arg m "$model_id" --arg c "$prompt" '{
+    model:$m, messages:[{role:"user",content:$c}],
+    temperature:0.2, max_tokens:8192, stream:false
+  }')"
+  curl -sf -m 600 "http://$HOST:$PORT/v1/chat/completions" \
+    -H 'Content-Type: application/json' -d "$payload" \
+  | jq -r '.choices[0].message.content'
+}
+
+iter() {
+  local briefing_file="$1"; local cwd="$2"
+  [[ -f "$briefing_file" ]] || { log "briefing não encontrado: $briefing_file"; return 1; }
+  [[ -d "$cwd" ]] || { log "cwd inválido: $cwd"; return 1; }
+  local prompt; prompt="$(cat "$briefing_file")"
+  log "Disparando Claude Code headless em $cwd (inferência no Ancalagon)..."
+  ( cd "$cwd" && \
+    local-claude --backend remote --host "$HOST" --port "$PORT" \
+      -p "$prompt" --output-format json )
+}
+
+health_snapshot() {
+  local svc; svc="$(active_service)"
+  local smi
+  smi="$(ssh_linux 'nvidia-smi --query-gpu=temperature.gpu,temperature.memory,power.draw,clocks_throttle_reasons.active --format=csv,noheader,nounits' || echo "NA,NA,NA,NA")"
+  IFS=',' read -r gtemp mtemp power throttle <<< "$smi"
+  jq -n --arg svc "${svc:-none}" --arg health "$(health_ok && echo ok || echo down)" \
+        --arg gt "${gtemp// /}" --arg mt "${mtemp// /}" \
+        --arg pw "${power// /}" --arg th "${throttle// /}" \
+    '{service:$svc, port_health:$health, gpu_temp_c:$gt, mem_temp_c:$mt, power_w:$pw, throttle:$th}'
+}
+
+MODEL=""; CWD="$PWD"
+CMD="${1:-}"; shift || true
+ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --model) MODEL="$2"; shift 2 ;;
+    --cwd)   CWD="$2"; shift 2 ;;
+    *)       ARGS+=("$1"); shift ;;
+  esac
+done
+
+case "$CMD" in
+  preflight) preflight "$MODEL" ;;
+  gen)       preflight "$MODEL" >&2 && gen "${ARGS[0]:?briefing.md requerido}" ;;
+  iter)      preflight "$MODEL" >&2 && iter "${ARGS[0]:?briefing.md requerido}" "$CWD" ;;
+  health)    health_snapshot ;;
+  *)         usage ;;
+esac

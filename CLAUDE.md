@@ -31,15 +31,21 @@ systemd/
   llama-coder.service      # Qwen3-Coder-30B Q4_K_M, --n-cpu-moe 16
   llama-qwen36.service     # Qwen3.6-27B-TQ3_4S, fork turbo-tan/llama.cpp-tq3
   llama-gemma4.service     # Gemma 4 26B-A4B-it Q4_K_M, --n-cpu-moe 8
+  99-wol.yaml              # netplan override: arma Wake-on-LAN na eno1
+  console-setup            # /etc/default/console-setup, TerminusBold 16x32 / Lat15
+  gpu-guard.service        # user unit PERSISTENTE do watchdog térmico (enabled)
 bin/
   lmswitch                 # wrapper {coder|qwen36|gemma4|off|sleep|status|logs}
+  gpu-guard                # watchdog térmico (nvidia-smi, escalonado WARN/CRIT)
   videoswitch              # toggle DPMS via /sys/class/graphics/fb0/blank
   bootwin                  # reboot one-shot para Windows via efibootmgr -n
 scripts/
   install.sh               # scp + daemon-reload via Tailscale
+skills/
+  delegando-ancalagon/     # skill global + anc-delegate (delegação headless cloud→Anc)
 benchmarks/
-  TUNING.md                # dados empíricos (KV quant, ncmoe, TQ3, GPU saturada)
-Makefile                   # make install|status|coder|qwen36|gemma4|off|sleep|wake|logs|video-{off,on,status}|bootwin
+  TUNING.md                # dados empíricos (KV quant, ncmoe, TQ3, GPU saturada, térmico)
+Makefile                   # make install|install-skill|status|coder|qwen36|gemma4|off|sleep|wake|logs|video-{off,on,status}|bootwin
 ```
 
 ## Decisões de design
@@ -51,11 +57,16 @@ Makefile                   # make install|status|coder|qwen36|gemma4|off|sleep|w
 - **KV q4_0 no coder, q8_0 no qwen36**. Testado: no qwen3.6-27b com offload parcial, KV q4 causa fallback CUDA catastrófico (1 tok/s). No coder MoE com quase tudo na GPU, q4 funciona e economiza VRAM. **Nunca K≠V** — assimetria causa fallback em qualquer modelo.
 - **TQ3_4S em vez de Q4_K_M** no qwen3.6. 13 GB cabe 100% GPU; qualidade indistinguível (testei em prompt com bug de concorrência + clock drift, identifica os 3 bugs críticos igual ao Q4_K_M).
 - **Caminho absoluto** `/home/lucas/.local/bin/lmswitch` nos aliases do Mac. SSH não-interativo ignora `~/.local/bin` do PATH.
+- **`gpu-guard` é `enabled` (persistente), ao contrário dos `llama-*`** (sob demanda). O risco térmico existe sempre que um modelo está carregado — inclusive quando o Lucas usa `srl-coder` sem o cloud no loop. Polling leve, custo desprezível.
+- **Watchdog escalonado (WARN loga, CRIT sustentado corta)** em vez de corte imediato. Evita falso-positivo por pico transitório. Limites calibrados empiricamente (pico normal do die = 77°C; WARN 82, CRIT 86; ver TUNING §12), não chutados.
+- **`gpu-guard` é proxy temp+throttle, não mede o conector 12VHPWR.** `nvidia-smi`/NVML não expõem a temperatura do plug. Protege contra superaquecimento do die e detecta throttle anômalo — limitação consciente.
+- **Delegação headless via skill `delegando-ancalagon`** (Mac). `anc-delegate` faz preflight (liga/acorda/sobe modelo) + dois caminhos: `gen` (curl one-shot) e `iter` (Claude Code headless no Mac com inferência remota). Host via MagicDNS `ancalagon-ubuntu` (o `100.64.0.10` da doc é fictício). Ver `docs/delegation.md` § "Delegação headless via skill".
 
 ## Deploy
 
 ```bash
 make install     # scp units + lmswitch, daemon-reload no Ancalagon
+make install-skill # symlink da skill delegando-ancalagon em ~/.claude/skills/ (Mac)
 make status      # probe do service ativo + health na :1234
 make coder       # sobe qwen3-coder
 make qwen36      # sobe qwen3.6 TQ3 (mata coder)
@@ -196,6 +207,7 @@ Regras que valem sempre:
 - [`docs/delegation.md`](docs/delegation.md) — charter cloud↔Ancalagon + boas práticas universais + tratamento de offline
 - [`benchmarks/TUNING.md`](benchmarks/TUNING.md) — dados empíricos por trás das configs
 - [`benchmarks/POWER.md`](benchmarks/POWER.md) — consumo de energia GPU por estado (dormente / idle / inference)
+- [`docs/console-setup.md`](docs/console-setup.md) — fonte do console TTY + guard p10k para acesso "à frente da máquina"
 
 ## O que NÃO está aqui
 
