@@ -20,16 +20,33 @@ Decisões arquiteturais, cross-repo, PRs, julgamento — ficam no cloud. O Ancal
 
 ## Escolha do caminho
 
-- **Caminho 1 (`gen`)** — spec fechada → código/texto, **nada a executar**:
-  boilerplate, suíte de testes para código definido, conversão A→B, refactor
-  mecânico. Você monta o briefing, o Ancalagon gera, **você aplica e revisa o
-  diff**. Economiza os output tokens da geração.
-- **Caminho 2 (`iter`)** — precisa **rodar/verificar/iterar**: "faça os testes
-  passarem", lint que corrige, debugging com ciclo tentativa-erro. Um Claude Code
-  headless roda no Mac (tools reais: Read/Edit/Bash, no diretório do repo) com a
-  inferência inteira na GPU do Ancalagon. Ele edita/roda sozinho; você lê o resumo
-  + `git diff`. Economia máxima — nem as iterações intermediárias custam tokens
-  cloud.
+A economia depende mais de **qual caminho** que de como briefar. Detalhes e o caso
+que motivou esta regra: memória `feedback_anc_caminho1_economia_tokens`.
+
+- **Caminho 1 (`gen`)** — usar **somente** quando os três valem:
+  1. **Output ≫ spec** — boilerplate/expansão mecânica (ex.: N fixtures de um
+     schema pequeno). Se especificar é quase tão caro quanto escrever, não delega.
+  2. **Revisão leve** — baixo risco de bug, output verificável de relance.
+  3. **Pouca referência embutida** — o briefing não precisa carregar trechos
+     grandes de outros arquivos (o Ancalagon não os lê).
+
+  **Aplicação (preserva a economia):** `cp` da saída crua para o destino + `Edit`
+  cirúrgico nos ajustes. **Nunca** re-Write o arquivo inteiro no cloud — re-emitir
+  o conteúdo gerado joga fora a economia da geração.
+
+- **Caminho 2 (`iter`)** — default para qualquer coisa com **muita referência**
+  (o agente headless lê os arquivos — o briefing vira tarefa + ponteiros, não
+  conteúdo copiado), **testável** (o agente roda os testes e te entrega verde +
+  `git diff`), ou **sutil**. O custo de cloud desacopla do tamanho da tarefa:
+  briefing curto + resumo curto; o trabalho pesado roda local na GPU.
+
+  **Ressalva:** só ganha se o qwen3-coder for competente para a tarefa sem
+  supervisão — ganho de token não compra competência. Se o modelo local
+  provavelmente erraria, faça no cloud ou aceite revisar o resultado.
+
+Cada chamada imprime no stderr um one-liner `[anc] ...` com a **economia bruta**
+(tokens do lado Ancalagon). É teto, não líquido: não inclui seu custo de cloud de
+escrever o briefing nem de revisar. Some-os ao decidir se valeu.
 
 ## Procedimento
 
