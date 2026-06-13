@@ -31,6 +31,8 @@ systemd/
   llama-coder.service      # Qwen3-Coder-30B Q4_K_M, --n-cpu-moe 16
   llama-qwen36.service     # Qwen3.6-27B-TQ3_4S, fork turbo-tan/llama.cpp-tq3
   llama-gemma4.service     # Gemma 4 26B-A4B-it Q4_K_M, --n-cpu-moe 8
+  99-wol.yaml              # netplan override: arma Wake-on-LAN na eno1
+  console-setup            # /etc/default/console-setup, TerminusBold 16x32 / Lat15
 bin/
   lmswitch                 # wrapper {coder|qwen36|gemma4|off|sleep|status|logs}
   videoswitch              # toggle DPMS via /sys/class/graphics/fb0/blank
@@ -196,6 +198,7 @@ Regras que valem sempre:
 - [`docs/delegation.md`](docs/delegation.md) — charter cloud↔Ancalagon + boas práticas universais + tratamento de offline
 - [`benchmarks/TUNING.md`](benchmarks/TUNING.md) — dados empíricos por trás das configs
 - [`benchmarks/POWER.md`](benchmarks/POWER.md) — consumo de energia GPU por estado (dormente / idle / inference)
+- [`docs/console-setup.md`](docs/console-setup.md) — fonte do console TTY + guard p10k para acesso "à frente da máquina"
 
 ## O que NÃO está aqui
 

@@ -6,8 +6,10 @@ install:
 	@bash scripts/install.sh
 
 install-system:
-	@scp systemd/99-wol.yaml scripts/setup-system.sh $(REMOTE):/tmp/
-	@ssh $(REMOTE) 'bash /tmp/setup-system.sh'
+	@ssh $(REMOTE) 'mkdir -p /tmp/ancalagon-system/systemd /tmp/ancalagon-system/scripts'
+	@scp systemd/99-wol.yaml systemd/console-setup $(REMOTE):/tmp/ancalagon-system/systemd/
+	@scp scripts/setup-system.sh $(REMOTE):/tmp/ancalagon-system/scripts/
+	@ssh $(REMOTE) 'bash /tmp/ancalagon-system/scripts/setup-system.sh'
 
 install-gla:
 	@mkdir -p $(HOME)/.local/bin
