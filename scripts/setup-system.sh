@@ -47,5 +47,14 @@ sudo setupcon --save --force 2>&1 | tail -5 || true
 sudo update-initramfs -u 2>&1 | tail -2
 
 echo ""
+echo "→ Instalando gpu-guard (watchdog térmico, user service persistente)..."
+install -m 0755 "$REPO_DIR/bin/gpu-guard" "$HOME/.local/bin/gpu-guard"
+install -d "$HOME/.config/systemd/user"
+install -m 0644 "$REPO_DIR/systemd/gpu-guard.service" "$HOME/.config/systemd/user/gpu-guard.service"
+systemctl --user daemon-reload
+systemctl --user enable --now gpu-guard.service
+systemctl --user is-active gpu-guard.service && echo "  gpu-guard ativo"
+
+echo ""
 echo "Done. Teste com: lmswitch sleep (do Ancalagon) ou llsleep (do Mac)"
 echo "Acordar com: wakeonlan 10:7C:61:45:D8:38 (do Mac)"
