@@ -156,7 +156,8 @@ iter() {
   local raw out
   raw="$( cd "$cwd" && \
     local-claude --backend remote --host "$HOST" --port "$PORT" \
-      -p "$prompt" --output-format json )"
+      -p "$prompt" --output-format json )" || {
+    log "ERRO: local-claude falhou (Caminho 2)"; return 1; }
   # local-claude --output-format json prepende "Model: ..." / "Server: ..." / "---"
   # ao JSON no stdout; a última linha é o objeto JSON em si.
   out="$(printf '%s\n' "$raw" | tail -n1)"
