@@ -1,32 +1,30 @@
 # ancalagon-llm
 
-Setup do Ancalagon (Ubuntu Server 24.04 dual-boot) como servidor LLM dedicado, otimizado para GPU RTX 4070 Ti SUPER (16 GB VRAM). Substitui LM Studio por `llama.cpp` nativo controlado por systemd, com três presets mutuamente exclusivos: Qwen3-Coder 30B (MoE upstream), Qwen3.6-27B (fork TQ3) e Gemma 4 26B-A4B-it (MoE upstream).
+Operational setup for **Ancalagon** (Ubuntu Server 24.04, dual-boot with Windows) as a dedicated local LLM server, tuned for an RTX 4070 Ti SUPER (16 GB VRAM). Replaces LM Studio with native `llama.cpp` controlled by systemd, exposing three mutually-exclusive model presets — Qwen3-Coder 30B (MoE, upstream), Qwen3.6-27B (TQ3 ternary quant, `turbo-tan/llama.cpp-tq3` fork) and Gemma 4 26B-A4B-it (MoE, upstream) — all on the same OpenAI-compatible port so existing clients don't need to change URLs. Consumed from a Mac (Glaurung) over Tailscale.
 
-Consumido do Mac (Glaurung) via Tailscale em `100.64.0.10:1234`.
+## Motivation
 
-## Motivação
+LM Studio was leaving roughly half the achievable tok/s on the table: ~30-34% GPU utilization and ~70W (of a 285W TGP budget) during inference. Two bottlenecks:
 
-LM Studio estava deixando ~50% de tok/s na mesa: GPU util em 30-34% durante inferência, ~70W (de 285W TGP). Dois gargalos identificados:
+1. **Generic partial offload** — LM Studio only lets you push "N% of layers to GPU". For a MoE model that's suboptimal: what matters is keeping attention/norm on GPU and experts on CPU. `llama.cpp`'s `--n-cpu-moe` flag does exactly that; LM Studio doesn't expose it.
+2. **Model larger than VRAM** — Qwen3.6-27B at Q4_K_M is 17 GB. With TQ3_4S (3-bit ternary quant, `turbo-tan/llama.cpp-tq3` fork) it drops to 13 GB and fits 100% in GPU. Measured effect: GPU util 34% → 96%, power 94W → 292W, throughput 13.7 → 36.8 tok/s.
 
-1. **Offload parcial genérico** — LM Studio divide "N% das camadas na GPU". Para MoE isso é sub-ótimo: o que importa é colocar attention/norm na GPU e experts na CPU. A flag `-n-cpu-moe` do llama.cpp faz exatamente isso. LM Studio não expõe.
-2. **Modelo maior que VRAM** — Qwen3.6-27B Q4_K_M tem 17 GB. Com TQ3_4S (3-bit ternary, fork `turbo-tan/llama.cpp-tq3`) cai para 13 GB e cabe 100% em GPU. Diferença: GPU util passa de 34% a 96%, power de 94W a 292W, throughput de 13.7 a 36.8 tok/s.
+### Measured gains
 
-## Ganhos medidos
-
-| Configuração | GPU util | Power | tok/s gen | pp tok/s |
+| Config | GPU util | Power | tok/s gen | pp tok/s |
 |---|---|---|---|---|
-| LM Studio — qwen3-coder Q4_K_M offload 0.80 | 30% | 67W | 64.5 | ~850 |
+| LM Studio — qwen3-coder Q4_K_M, offload 0.80 | 30% | 67W | 64.5 | ~850 |
 | **llama-server upstream — qwen3-coder `-ncmoe 10`** | 36% | 101W | **81.5** | **~1850** |
-| LM Studio — qwen3.6-27b Q4_K_M offload 0.85 | 34% | 94W | 13.7 | ? |
+| LM Studio — qwen3.6-27b Q4_K_M, offload 0.85 | 34% | 94W | 13.7 | ? |
 | **llama-server TQ3 fork — Qwen3.6-27B-TQ3_4S** | **96%** | **292W** | **36.8** | **1266** |
 
-Cross-machine via Tailscale: 96.4 tok/s gen no coder, 255ms round-trip em prompts pequenos.
+Cross-machine over Tailscale: 96.4 tok/s gen on the coder preset, 255ms round-trip on small prompts. Raw benchmark methodology and data live in [`benchmarks/`](benchmarks/README.md).
 
-## Arquitetura
+## Architecture
 
 ```
 Glaurung (Mac)                    Ancalagon-Ubuntu
-                                  (100.64.0.10 / 192.168.1.8)
+                                  (Tailscale / LAN)
 aliases:                          systemd --user:
   llcoder  ──────ssh─────▶        llama-coder.service ──┐
   llq36    ──────ssh─────▶        llama-qwen36.service ─┤
@@ -35,226 +33,92 @@ aliases:                          systemd --user:
   llstatus ──────ssh─────▶        + disabled)
                                        │
                                        ▼
-                                  :1234 (OpenAI-compat API)
+                                  :1234 (OpenAI-compatible API)
                                        ▲
-curl http://100.64.0.10:1234 ─────────┘
+curl http://<ancalagon-tailscale-ip>:1234 ─┘
 ```
 
-Porta **1234** (mesma do LM Studio — clientes existentes não precisam mudar URL).
+Port **1234** is the same one LM Studio used to bind, so existing clients keep working unmodified. The three `llama-*.service` units declare `Conflicts=` against each other and against `lmstudio.service`, so systemd guarantees only one is ever running — no manual stop/start choreography, no risk of two models fighting over the same 16 GB of VRAM.
 
-## Componentes
+## Stack / Requirements
 
-### `systemd/llama-coder.service`
+- Bash (systemd wrapper scripts, `set -euo pipefail`)
+- `llama.cpp` compiled with CUDA (sm_89) — upstream and the `turbo-tan/llama.cpp-tq3` fork, both built out-of-repo on Ancalagon
+- systemd `--user` units (Ancalagon side)
+- `curl`, `jq` for health probes and JSON handling
+- Tailscale (or LAN) connectivity between the Mac client and Ancalagon
+- macOS client tooling: `opencode` (or `local-claude`) to consume the OpenAI-compatible endpoint
 
-Upstream llama.cpp com Qwen3-Coder-30B-A3B-Instruct Q4_K_M. Flags:
+## Installation
 
-- `--n-cpu-moe 16` — primeiras 16 camadas de experts na CPU, restante + attention/norm na GPU
-- `-c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 16` (ctx 96K; prefere-se ncmoe maior para caber contexto longo vs ncmoe=12 com ctx menor — ver TUNING.md)
-- Bind `0.0.0.0:1234`, `Conflicts=llama-qwen36.service llama-gemma4.service lmstudio.service`
+Prerequisites already present on Ancalagon (not managed by this repo — see [MANUTENCAO.md](MANUTENCAO.md) "Dependências e integrações"):
+- `~/git/llama.cpp/build/bin/llama-server` compiled with CUDA sm_89
+- `~/git/llama.cpp-tq3/build/bin/llama-server` (TQ3 fork, same flags)
+- GGUF model files in `~/.lmstudio/models/…` and `~/models/gguf/…`
 
-### `systemd/llama-qwen36.service`
+From the Mac (this repo's checkout):
 
-Fork `turbo-tan/llama.cpp-tq3` com Qwen3.6-27B-TQ3_4S (13 GB, cabe 100% GPU).
-
-- `-c 40960 -ngl 99 -fa 1 -ctk q8_0 -ctv q8_0 -t 12` (KV q8, não q4 — experiência mostra q4 causa fallback CUDA catastrófico nesse modelo; ctx limitado pela VRAM — 48K+ daria OOM com ~770 MiB de folga original)
-- Mesmo `Conflicts=`
-
-### `systemd/llama-gemma4.service`
-
-Upstream llama.cpp com Gemma 4 26B-A4B-it Q4_K_M (16 GB em disco, MoE com 4B ativos). Mesmo binário do coder.
-
-- `-c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 8 --jinja` (ncmoe otimizado via sweep empírico — 84 tok/s gen curto, 60 tok/s após 60K prefill, 1.9 GiB livre mín sob carga; ver `benchmarks/TUNING.md` §7)
-- Bind `0.0.0.0:1234`, `Conflicts=llama-coder.service llama-qwen36.service lmstudio.service`
-
-### `bin/videoswitch`
-
-Toggle da saída de vídeo do console (DPMS). Usado quando o Ancalagon roda headless mas tem monitores físicos conectados — evita imagem estática queimando o display. Escreve em `/sys/class/graphics/fb0/blank` (FBIOBLANK via sysfs); persiste o último estado em `/run/videoswitch.state` porque o driver `nvidia-drm` retorna vazio na leitura.
-
-```
-videoswitch off     # nivel 4 (DPMS power off)
-videoswitch on      # nivel 0 (unblank)
-videoswitch status  # mostra last set + leitura raw do fb0
-```
-
-Estado em `/run/` zera no reboot por design (saída volta ligada por default no boot).
-
-### `bin/bootwin`
-
-Reboot one-shot para Windows via `efibootmgr -n`. Lê dinamicamente o `BootNum` da entrada "Windows Boot Manager" (não hardcoded), seta `BootNext` no UEFI, reinicia. Firmware consome `BootNext` e o boot seguinte volta pra `BootOrder` default (Ubuntu) — não persiste.
-
-```
-bootwin --dry-run   # mostra qual entrada seria usada, sem reiniciar
-bootwin             # reinicia para Windows com 5s de janela pra Ctrl+C
-```
-
-Volta pro Linux: acessa Windows via RealVNC (já configurado como serviço, sobe sem login) e roda `shutdown /r /t 0` no prompt — Windows reinicia, GRUB cai no default Ubuntu.
-
-Após o retorno, services `llama-*` **não sobem sozinhos** (intencional — `enabled` continua off). Rodar `make coder`/`make gemma4`/etc. via SSH como em qualquer wake.
-
-### `bin/lmswitch`
-
-Wrapper que:
-- Alterna entre services respeitando o `Conflicts=`
-- Faz health-poll em `/health` após start (timeout 90s)
-- `status` mostra state dos 3 services + probe :1234
-- `logs` segue journal do service ativo
-
-Uso:
-```
-lmswitch coder    # sobe qwen3-coder
-lmswitch qwen36   # sobe qwen3.6 TQ3
-lmswitch gemma4   # sobe gemma-4-26b
-lmswitch off      # para tudo
-lmswitch status
-lmswitch logs
-```
-
-Tempos de start observados:
-- coder (17 GB Q4_K_M): 57s primeira vez, ~20s com mmap cacheado
-- qwen36 (13 GB TQ3_4S): 26s
-
-### `bin/gpu-guard` + `systemd/gpu-guard.service`
-
-Watchdog térmico da GPU (user unit **persistente**, `enabled` no boot — diferente
-dos `llama-*` sob demanda). Faz polling de `nvidia-smi` (5s) e age escalonado:
-**WARN** (82°C) loga; **CRIT** (86°C) sustentado por 30s para o `llama-*.service`
-ativo. Proxy temp+throttle — `nvidia-smi` não expõe a temperatura do conector
-12VHPWR. Limites calibrados empiricamente (pico normal do die = 77°C sob 320W;
-ver `benchmarks/TUNING.md` §12). Deploy via `make install-system`.
-
-### `skills/delegando-ancalagon/`
-
-Skill global do Claude Code (Mac) para **delegação headless** do cloud ao
-Ancalagon, economizando tokens. O helper `anc-delegate` faz preflight
-(liga/acorda/sobe modelo) + dois caminhos: `gen` (curl one-shot) e `iter`
-(Claude Code headless no Mac com inferência remota). Instalada por
-`make install-skill`. Ver `docs/delegation.md` § "Delegação headless via skill".
-
-## Instalação no Ancalagon
-
-Pré-requisitos já presentes (ver memória `project_ancalagon_ubuntu`):
-- `~/git/llama.cpp/build/bin/llama-server` compilado com CUDA sm_89
-- `~/git/llama.cpp-tq3/build/bin/llama-server` idem
-- Modelos em `~/.lmstudio/models/…/Q4_K_M.gguf` e `~/models/gguf/Qwen3.6-27B-TQ3_4S.gguf`
-
-Instalação:
 ```bash
-# Parar LM Studio (se ativo)
-systemctl --user stop lmstudio.service
-systemctl --user disable lmstudio.service
+# Deploy systemd units + lmswitch/videoswitch/bootwin wrappers to Ancalagon
+make install
 
-# Units
-cp systemd/llama-coder.service systemd/llama-qwen36.service ~/.config/systemd/user/
-systemctl --user daemon-reload
+# One-time system prerequisites for `lmswitch sleep` (WoL, nvidia-suspend, console font)
+make install-system
 
-# Wrapper
-cp bin/lmswitch ~/.local/bin/lmswitch
-chmod +x ~/.local/bin/lmswitch
+# Optional: install the `gla` local-backend wrapper on the Mac itself
+make install-gla
 
-# Aliases (remoto, opcional)
-cat >> ~/.zshrc <<'EOF'
-
-alias llcoder="lmswitch coder"
-alias llq36="lmswitch qwen36"
-alias llgemma4="lmswitch gemma4"
-alias lloff="lmswitch off"
-alias llstatus="lmswitch status"
-alias lllogs="lmswitch logs"
-EOF
+# Optional: install the delegando-ancalagon Claude Code skill on the Mac
+make install-skill
 ```
 
-Services **não são habilitados por default** — boot não sobe nada. Usuário invoca sob demanda.
+Services are **not enabled by default** — a clean boot starts nothing; you invoke a preset on demand. See [`scripts/install.sh`](scripts/install.sh) and [`scripts/setup-system.sh`](scripts/setup-system.sh) for exactly what gets copied/configured.
 
-## Integração Mac (cliente Tailscale)
+## How to run
 
-Já aplicado no `~/.zshrc` do Glaurung:
+```bash
+make coder     # start Qwen3-Coder-30B (MoE, --n-cpu-moe 16, ctx 96K)
+make qwen36    # start Qwen3.6-27B-TQ3_4S (100% GPU, ctx 40K)
+make gemma4    # start Gemma 4 26B-A4B-it (MoE, --n-cpu-moe 8, ctx 96K)
+make off       # stop whichever preset is active
+make sleep     # stop + suspend the whole machine (wake via WoL)
+make status    # service states + health probe on :1234
+make logs      # tail the journal of the active preset
+```
+
+Equivalent aliases from the Mac's `.zshrc` (`llcoder`, `llq36`, `llgemma4`, `lloff`, `llsleep`, `llstatus`, `lllogs`) wrap the same `ssh … lmswitch <subcommand>` calls — see [MANUTENCAO.md](MANUTENCAO.md) for the full list and the `srl-coder`/`srl-tq` Claude Code entry points.
+
+Typical flow:
 
 ```zsh
-export REMOTE_SSH_HOST="Ancalagon_Ubuntu-Tailnet"
-export LCC_HOST="100.64.0.10"
-
-# Controle dos services (ssh remoto → lmswitch)
-alias llcoder='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch coder'
-alias llq36='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch qwen36'
-alias llgemma4='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch gemma4'
-alias lloff='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch off'
-alias llsleep='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch sleep'
-alias llstatus='ssh "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch status'
-alias lllogs='ssh -t "$REMOTE_SSH_HOST" /home/lucas/.local/bin/lmswitch logs'
-export ANCALAGON_LLM_URL="http://${LCC_HOST}:1234/v1"
-
-# Entrar no Claude Code apontando pro service ativo (local-claude em ~/git/local-claude)
-# srl-coder usa backend `remote` (só conecta, não sobe instância) → aproveita tuning do service
-alias srl-coder='specstory run claude -c "local-claude --backend remote --port 1234" --no-cloud-sync'
-alias srl-tq='specstory run claude -c "local-claude --backend remote-llama --tq3" --no-cloud-sync'
-alias srl='specstory run claude -c "local-claude --backend remote-llama" --no-cloud-sync'
+llcoder && srl-coder   # code work, MoE, ~80 tok/s
+llq36 && srl-tq        # reasoning-heavy work, TQ3, ~37 tok/s, 100% GPU
+lloff                  # free the GPU, machine stays up
+llsleep                # suspend the whole box (wakes via Wake-on-LAN)
 ```
 
-Caminho absoluto no lmswitch é necessário — SSH não-interativo ignora `~/.local/bin`.
+## Folder structure
 
-### Fluxo típico de uso
-
-```zsh
-# Trabalho em código (MoE rápido, ~80 tok/s)
-llcoder && srl-coder
-
-# Thinking/análise com reasoning (TQ3, ~37 tok/s, 100% GPU)
-llq36 && srl-tq
-
-# Liberar GPU (service parado, sistema ligado)
-lloff
-
-# Suspender o sistema inteiro (usa WoL do Mac para acordar)
-llsleep
+```
+bin/                    lmswitch, gpu-guard, videoswitch, bootwin — the operational wrapper scripts
+systemd/                llama-{coder,qwen36,gemma4}.service, gpu-guard.service, 99-wol.yaml, console-setup
+scripts/                install.sh (deploy), setup-system.sh (WoL/nvidia-suspend/console prerequisites), build-llama.sh
+clients/glaurung-llm/   gla — Mac-side backend switcher (llama.cpp Metal / MLX) + TUNING.md
+clients/opencode/       opencode.json template + README for wiring opencode to Ancalagon/Glaurung backends
+skills/delegando-ancalagon/  Claude Code skill + anc-delegate — headless delegation from cloud Claude to Ancalagon
+benchmarks/             TUNING.md, POWER.md — raw empirical data behind the current flags
+docs/                   delegation.md (cloud↔Ancalagon charter), console-setup.md
+Makefile                all `make <target>` entry points, thin wrappers around ssh + the bin/ scripts
 ```
 
-### Variante `_vpn` (via Mac Mini do Ricardo como bridge)
+## Documentation related
 
-Para casos onde SSH direto do Mac para `Ancalagon_Ubuntu-Tailnet` não está viável (rede restrita, hop específico), existe o par simétrico via Mac Mini `100.64.0.20` (mesma LAN física do Ancalagon):
+- [MANUTENCAO.md](MANUTENCAO.md) — maintenance guide (architecture, where things live, change recipes)
+- [AGENTS.md](AGENTS.md) — dense map for LLM agents (file map, symbol index, commands, constraints)
+- [CLAUDE.md](CLAUDE.md) — Claude Code specific notes (commands, gotchas, commit/push)
+- [AI_CONTEXT.md](AI_CONTEXT.md) — one-page PT-BR bootstrap for a fresh assistant session (Intellissis convention)
+- [docs/delegation.md](docs/delegation.md) — charter for delegating work from cloud Claude to Ancalagon
 
-```zsh
-alias wakepc_vpn='ssh -t lucas@100.64.0.20 "zsh -ilc wakepc"'
-alias llsleep_vpn='ssh -o ConnectTimeout=10 lucas@100.64.0.20 \
-  "ssh -o ConnectTimeout=5 lucas@192.168.1.8 /home/lucas/.local/bin/lmswitch sleep"'
-```
+## License
 
-O Mac Mini faz broadcast WoL na LAN (único lugar onde magic packet alcança o Ancalagon) e, pra suspend, SSH via IP local `192.168.1.8`. Dependência: Mac Mini ligado + chave SSH do `100.64.0.20` instalada para `lucas@192.168.1.8` (foi instalado em 2026-04-24).
-
-### Pré-requisitos no Ancalagon
-
-O `llsleep` exige três pré-requisitos no Ancalagon, aplicados por `make install-system`:
-- `/etc/sudoers.d/lucas-nopasswd` (NOPASSWD — feito manualmente na primeira vez)
-- `nvidia-suspend/resume/hibernate.service` habilitados (driver `nvidia-open` falha suspend sem eles)
-- `/etc/netplan/99-wol.yaml` armando WoL na eno1 (default é desarmado)
-
-Depois do wake via WoL os services **não sobem automaticamente** (`enabled` continua off) — rodar `llcoder` ou `llq36` conforme o caso.
-
-**Por que `srl-coder` usa `--backend remote` e não `--backend remote-llama`?**
-`remote-llama` sobe uma *nova* instância via SSH com flags default (`-ngl 99` apenas — sem `--n-cpu-moe`). Para o Qwen3-Coder 30B MoE isso dá OOM ou inferência muito lenta. `remote` apenas conecta ao server existente, aproveitando as flags tuned do `llama-coder.service` (`--n-cpu-moe 16`, KV q4/q4, 96K ctx). Mesma razão pela qual o modelo **não aparece no listing do `srl`**: o `local-claude` lista só `$REMOTE_MODELS_DIR=~/models/gguf/` e o Qwen3-Coder vive em `~/.lmstudio/models/...` — mas isso é irrelevante quando se usa `srl-coder`, porque ele nem tenta listar, só conecta ao :1234.
-
-## `benchmarks/`
-
-Dados brutos do tuning que levaram a essas configs (KV quant wrapper, ncmoe sweep, ubatch sweep, GPU util telemetry). Ver `benchmarks/README.md`.
-
-## Decisões arquiteturais
-
-**Por que services mutuamente exclusivos (`Conflicts=`) e não um único service parametrizado?**
-`Conflicts=` garante atomicamente que só um está rodando — systemd para o outro antes de subir o novo. Um único service + env var exigiria lógica manual de parar/restart e abriria janela onde ambos poderiam rodar em erro de OOM. `Conflicts=` faz isso grátis.
-
-**Por que ambos na porta 1234?**
-Mesma porta do LM Studio; clientes OpenAI-compat existentes (Claude Code, Open WebUI, scripts) continuam funcionando sem mudar URL. Troca é transparente.
-
-**Por que `TQ3_4S` em vez de Q3_K_M upstream?**
-Testei: TQ3 gera 36.8 tok/s, cabe 13 GB, qualidade perceptível equivalente ao Q4_K_M no mesmo modelo (valida bugs de concorrência e clock drift num rate-limiter bugado com precisão igual). Upstream Q3_K_M nunca foi testado mas não valeria o download — TQ3 já cumpre o papel.
-
-**Por que não habilitar auto-start?**
-VRAM é compartilhada com outras tarefas eventuais (sessões de fine-tuning, testes). Subir automaticamente no boot força escolha que nem sempre é desejada. Invocação explícita é clara.
-
-## Tuning descoberto e não óbvio
-
-Consolidado em `benchmarks/TUNING.md`. Resumo:
-- KV quant no LM Studio exige wrapper `{checked:true, value:"q4_0"}` — sem isso o campo é silenciosamente ignorado (cache fica em f16)
-- K e V assimétricos (K=q8 V=q4) → fallback CUDA catastrófico no qwen3-coder (3 tok/s)
-- `-ncmoe 12` é o pico empírico no Qwen3-Coder 30B (ncmoe=10 em produção por segurança de VRAM)
-- ubatch default 512 já satura; subir para 1024/2048 dá <2% de ganho
-- cpuThreadPoolSize=12 (SMT completo no Ryzen 7600X 6c/12t) vs default 9 → +5-8% em MoE
+MIT — see [LICENSE](LICENSE).
