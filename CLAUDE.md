@@ -44,6 +44,14 @@ Não há build nem suíte de testes automatizada neste repo (ver [MANUTENCAO.md]
 - `~/git/local-claude/` — fonte do `local-claude` (backends `remote`, `remote-llama`, `llama`, `lmstudio`, `apfel`), repo separado
 - Aliases do Mac `.zshrc` (vivem em `~/.zshrc` do Glaurung — adicionados manualmente, documentados aqui e no README, não sincronizados por este repo)
 
+## Manutenção destes docs
+
+Se sua mudança invalidar algo citado aqui ou nos docs irmãos — um comando, um
+símbolo, uma referência `arquivo:linha`, a estrutura de pastas — corrija a
+referência **no mesmo commit**. Não reescreva proativamente o que ainda está
+correto. Para um refresh completo, use a skill `/atualizando-docs-manutencao`
+(ela verifica cada ref com `git grep`).
+
 ## Commit/push
 
 O remote `origin` tem **duas `pushurl`** configuradas (GitHub + GitLab homelab) — um único `git push` alcança os dois:
