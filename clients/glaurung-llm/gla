@@ -174,7 +174,7 @@ cmd_run() {
   [ -f "$OPENCODE_CONFIG" ] || { echo "[gla] $OPENCODE_CONFIG não existe" >&2; return 1; }
   jq empty "$OPENCODE_CONFIG" >/dev/null 2>&1 || { echo "[gla] $OPENCODE_CONFIG: JSON inválido" >&2; return 1; }
 
-  echo "[gla] mutex: matando :$LCPP_PORT + :$MLX_PORT…"
+  echo "[gla] mutex: matando :${LCPP_PORT} + :${MLX_PORT}…"
   _mutex || return 1
 
   echo "[gla] start: $backend ($model_id) — log: $log_path"
@@ -184,17 +184,17 @@ cmd_run() {
   # 130 = 128 + SIGINT(2), shell convention for "killed by Ctrl-C"
   trap "_kill_port \"$port\"; echo '[gla] interrupted — backend killed' >&2; exit 130" INT TERM
 
-  echo "[gla] aguardando :$port responder /v1/models…"
+  echo "[gla] aguardando :${port} responder /v1/models…"
   if ! _wait_ready "$port" 120; then
     _kill_port "$port"
     return 1
   fi
 
-  echo "[gla] gravando model em $OPENCODE_CONFIG…"
+  echo "[gla] gravando model em ${OPENCODE_CONFIG}…"
   _set_opencode_model "$model_id" || { _kill_port "$port"; return 1; }
 
   trap - INT TERM
-  echo "[gla] abrindo opencode (model=$model_id)…"
+  echo "[gla] abrindo opencode (model=${model_id})…"
   exec opencode
 }
 
