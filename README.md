@@ -97,6 +97,18 @@ lloff                  # free the GPU, machine stays up
 llsleep                # suspend the whole box (wakes via Wake-on-LAN)
 ```
 
+### Dual-boot (Windows)
+
+The machine dual-boots Windows; the UEFI default is Ubuntu, so a normal reboot always lands on Ubuntu. Two one-shot `BootNext` helpers cross over (both revert after that single boot):
+
+```zsh
+anc_bootwin        # from Ubuntu → next boot is Windows (runs bootwin → efibootmgr -n)
+anc_win_bootwin    # from Windows → next boot STAYS on Windows instead of falling back to Ubuntu
+anc_win_restart    # from Windows → normal reboot, lands on Ubuntu (the default)
+```
+
+`anc_win_bootwin` runs `bcdedit /set {fwbootmgr} bootsequence {bootmgr}` + reboot over SSH (`$ANC_WIN` Tailnet; `anc_win_bootwin_lan` uses the direct LAN path). The same logic lives locally on Windows as `bootwin` (`C:\Users\lucas\bin\bootwin.cmd`, supports `--dry-run`). The `lucas@` SSH session on Windows is already elevated, so `bcdedit` runs headless.
+
 ## Folder structure
 
 ```
