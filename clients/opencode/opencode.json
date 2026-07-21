@@ -1,0 +1,81 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "ancalagon": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ancalagon (llama.cpp via Tailscale)",
+      "options": {
+        "baseURL": "http://100.64.0.10:1234/v1"
+      },
+      "models": {
+        "coder": {
+          "name": "Qwen3-Coder 30B-A3B Q4_K_M (MoE, ncmoe=16)",
+          "limit": {
+            "context": 98304,
+            "output": 32768
+          }
+        },
+        "qwen36": {
+          "name": "Qwen3.6-27B TQ3_4S (TQ3 fork, 100% GPU)",
+          "limit": {
+            "context": 40960,
+            "output": 16384
+          }
+        },
+        "gemma4": {
+          "name": "Gemma 4 26B-A4B-it Q4_K_M (MoE, ncmoe=8)",
+          "limit": {
+            "context": 98304,
+            "output": 32768
+          }
+        }
+      }
+    },
+    "glaurung": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Glaurung (llama.cpp Metal, local)",
+      "options": {
+        "baseURL": "http://127.0.0.1:1235/v1"
+      },
+      "models": {
+        "qwen36": {
+          "name": "Qwen3.6-27B Q4_K_M dense (Metal, M4 Pro, KV q8_0, ctx 48K, ~12 tok/s)",
+          "limit": {
+            "context": 49152,
+            "output": 16384
+          }
+        },
+        "gemma4": {
+          "name": "Gemma 4 26B-A4B-it Q4_K_M MoE (Metal, M4 Pro, KV q8_0, ctx 80K, ~55 tok/s)",
+          "limit": {
+            "context": 81920,
+            "output": 16384
+          }
+        }
+      }
+    },
+    "glaurung-mlx": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Glaurung MLX (Apple-native, single server, dynamic load)",
+      "options": {
+        "baseURL": "http://127.0.0.1:1236/v1"
+      },
+      "models": {
+        "mlx-community/Qwen3.6-27B-4bit": {
+          "name": "Qwen3.6-27B 4-bit MLX (~13.7 tok/s, +37% vs llama.cpp)",
+          "limit": {
+            "context": 49152,
+            "output": 16384
+          }
+        },
+        "lmstudio-community/gemma-4-26B-A4B-it-MLX-4bit": {
+          "name": "Gemma 4 26B-A4B 4-bit MLX (~57 tok/s, +14% vs llama.cpp)",
+          "limit": {
+            "context": 81920,
+            "output": 16384
+          }
+        }
+      }
+    }
+  }
+}
