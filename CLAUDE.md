@@ -18,11 +18,11 @@ Não há build nem suíte de testes automatizada neste repo (ver [MANUTENCAO.md]
 
 ## Gotchas (top 5)
 
-1. **`systemd/llama-coder.service:2`** (comentário `Description=`) diz `n-cpu-moe=12`, mas o `ExecStart=` real (linha 11) usa `--n-cpu-moe 16`. Confiar sempre na flag real, não no comentário, ao investigar o preset ativo.
-2. **KV cache assimétrico (K≠V) quebra o Qwen3.6-27B** — cai para ~1 tok/s (fallback CUDA catastrófico, testado e reproduzido). `llama-qwen36.service` usa `q8_0` simétrico nos dois lados; nunca mudar só um.
-3. **Aliases SSH do Mac exigem caminho absoluto** (`/home/lucas/.local/bin/lmswitch`, não `lmswitch` via PATH) — sessão SSH não-interativa não carrega o `$PATH` do shell interativo.
-4. **Services `llama-*` NÃO são `enabled`** (decisão consciente — VRAM compartilhada com tarefas eventuais). `gpu-guard.service` é a exceção: **é** `enabled`, roda sempre que a máquina está de pé.
-5. **Fonte de verdade é este repo, não o Ancalagon** — nunca editar `~/.config/systemd/user/llama-*.service` ou `~/.local/bin/lmswitch` direto no remoto; editar aqui e `make install`.
+1. **KV cache assimétrico (K≠V) quebra o Qwen3.6-27B** — cai para ~1 tok/s (fallback CUDA catastrófico, testado e reproduzido). `llama-qwen36.service` usa `q8_0` simétrico nos dois lados; nunca mudar só um.
+2. **Aliases SSH do Mac exigem caminho absoluto** (`/home/lucas/.local/bin/lmswitch`, não `lmswitch` via PATH) — sessão SSH não-interativa não carrega o `$PATH` do shell interativo.
+3. **Services `llama-*` NÃO são `enabled`** (decisão consciente — VRAM compartilhada com tarefas eventuais). `gpu-guard.service` é a exceção: **é** `enabled`, roda sempre que a máquina está de pé.
+4. **Fonte de verdade é este repo, não o Ancalagon** — nunca editar `~/.config/systemd/user/llama-*.service` ou `~/.local/bin/lmswitch` direto no remoto; editar aqui e `make install`.
+5. **Ao encerrar um sweep de tuning, corrija as citações da flag no mesmo commit** — `Description=`, tabelas de `AI_CONTEXT.md`/`AGENTS.md` e os "config atual" de `benchmarks/` envelhecem juntos e em silêncio. Ao investigar um preset, a fonte de verdade é sempre o `ExecStart=` (ou `systemctl --user cat`), nunca a prosa.
 
 ## Ponteiros
 
