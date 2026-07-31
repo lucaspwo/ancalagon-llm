@@ -58,9 +58,11 @@ Qwen3-Coder 30B-A3B, `llama-bench` tg128 @ sem ctx loaded (VRAM só pesos):
 
 **Em produção com 32K ctx** (KV ocupa ~860 MiB extra): `ncmoe=10` é o pico seguro (81.5 tok/s, 15.5 GiB VRAM, 500 MiB folga). `ncmoe=8` OOM com 32K; só cabe com 16K.
 
-O service usa `ncmoe=12` pensando em headroom maior (pico do bench).
+Nesta etapa o service usava `ncmoe=12`, mirando o headroom maior (pico do bench).
 
-**Em produção com 64K ctx** (desde que Claude Code system prompt + tools consome ~32K e 32K não dava margem pro user content): testado `ncmoe=12 + ctx=65536 + KV q4/q4` — cabe em **15.7 GiB / 175 MiB livres**, com 75.7 tok/s em prompt de 400 tokens (perda de ~5% vs 32K pelo KV cache maior). Esta é a config atual do `llama-coder.service`.
+**Em produção com 64K ctx** (desde que Claude Code system prompt + tools consome ~32K e 32K não dava margem pro user content): testado `ncmoe=12 + ctx=65536 + KV q4/q4` — cabe em **15.7 GiB / 175 MiB livres**, com 75.7 tok/s em prompt de 400 tokens (perda de ~5% vs 32K pelo KV cache maior). Config do `llama-coder.service` nesta etapa, superada depois pela subida para 96K.
+
+**Config atual em produção (96K ctx):** `-c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 16`. Subir de 64K para 96K aumenta o KV cache, o que exigiu mover mais experts para a CPU (`ncmoe` 12 → 16) para caber nos 16 GiB — trocou-se ~2% de tok/s por +50% de contexto, justificado pelo system prompt do Claude Code consumir ~32K sozinho. **Fonte de verdade é o `ExecStart=` de [`systemd/llama-coder.service`](../systemd/llama-coder.service)**, não este texto: as linhas acima registram o histórico do sweep, não o estado corrente.
 
 ## 3. ubatch sweep
 

@@ -41,7 +41,7 @@ Três services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio s
 |---|---|---|
 | `systemd/llama-coder.service` | user unit — Qwen3-Coder 30B MoE, `--n-cpu-moe 16`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
 | `systemd/llama-qwen36.service` | user unit — Qwen3.6-27B TQ3_4S (fork), KV q8/q8, ctx 40K | idem |
-| `systemd/llama-gemma4.service` | user unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 16`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
+| `systemd/llama-gemma4.service` | user unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 8`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
 | `bin/lmswitch` | wrapper com subcomandos `coder\|qwen36\|gemma4\|off\|sleep\|status\|logs` | `~/.local/bin/` no Ancalagon |
 | `bin/gpu-guard` | watchdog térmico (nvidia-smi, escalonado WARN/CRIT) | `~/.local/bin/` + user unit `enabled` |
 | `systemd/gpu-guard.service` | user unit do watchdog, persistente (sobe no boot) | `~/.config/systemd/user/` no Ancalagon |

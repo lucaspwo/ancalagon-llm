@@ -14,7 +14,9 @@ Fonte: `nvidia-smi --query-gpu=power.draw,utilization.gpu,memory.used --format=c
 | `llama-qwen36` idle (modelo carregado, sem request) | **25.8W** | 0% | 15142 MiB | +3.6W |
 | `llama-qwen36` em inference | **288W** | 96% | 15142 MiB | +266W vs dormente |
 
-Medições feitas em **2026-04-24**. Config atual: coder ctx=96K ncmoe=16, qwen36 ctx=32K (TQ3 fork).
+Medições feitas em **2026-04-24**, com a config vigente naquela data: coder ctx=96K ncmoe=16, qwen36 ctx=32K (TQ3 fork).
+
+O `llama-qwen36.service` opera hoje com **ctx=40K** (`-c 40960`). Os valores de power e utilização acima seguem válidos — consumo é função da carga de compute, não do tamanho do contexto —, mas a **VRAM usada do qwen36 é maior que os 15142 MiB da tabela**, porque o KV cache cresce linear com o contexto. Para VRAM corrente, medir; para power, usar a tabela.
 
 ## Interpretação
 

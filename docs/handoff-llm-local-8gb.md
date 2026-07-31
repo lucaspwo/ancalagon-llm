@@ -392,10 +392,13 @@ Está em todos os nossos três services.
 deploy reverte, e ninguém lembra por quê. Edite no repo, faça deploy. Vale desde o primeiro dia,
 não a partir do dia em que dói.
 
-**6. Comentário mente, `ExecStart` não.** `[MEDIDO]` Nosso `llama-coder.service` tem um
-`Description=` dizendo `n-cpu-moe=12` enquanto o `ExecStart=` real usa `--n-cpu-moe 16`
-(sobrevivente de um sweep). Ao investigar um preset ativo, leia sempre a linha de comando real —
-de preferência a do processo em execução, com `systemctl --user cat` ou `ps`.
+**6. Comentário mente, `ExecStart` não.** Um sweep de tuning muda a flag e deixa para trás
+comentários, `Description=` e tabelas de documentação apontando para o valor antigo. Já
+acumulamos isso em quatro lugares diferentes do nosso repo — inclusive um `Description=`
+divergindo do `ExecStart=` do mesmo arquivo. Ao investigar um preset ativo, leia sempre a linha
+de comando real (`systemctl --user cat <unit>` ou `ps`), nunca a descrição. E, ao encerrar um
+sweep, corrija as citações do valor **no mesmo commit** que muda a flag — é a única disciplina
+que evita o acúmulo.
 
 **7. Deixar o modelo carregado é barato.** `[MEDIDO]` Modelo residente em idle custou
 **+3,6 W** sobre a GPU dormente no nosso hardware — praticamente nada. Recarregar leva 20–60 s.
