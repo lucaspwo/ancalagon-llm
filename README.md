@@ -119,7 +119,7 @@ clients/glaurung-llm/   gla — Mac-side backend switcher (llama.cpp Metal / MLX
 clients/opencode/       opencode.json template + README for wiring opencode to Ancalagon/Glaurung backends
 skills/delegando-ancalagon/  Claude Code skill + anc-delegate — headless delegation from cloud Claude to Ancalagon
 benchmarks/             TUNING.md, POWER.md — raw empirical data behind the current flags
-docs/                   delegation.md (cloud↔Ancalagon charter), console-setup.md
+docs/                   delegation.md (cloud↔Ancalagon charter), console-setup.md, handoff-llm-local-8gb.md
 Makefile                all `make <target>` entry points, thin wrappers around ssh + the bin/ scripts
 ```
 
@@ -130,6 +130,7 @@ Makefile                all `make <target>` entry points, thin wrappers around s
 - [CLAUDE.md](CLAUDE.md) — Claude Code specific notes (commands, gotchas, commit/push)
 - [AI_CONTEXT.md](AI_CONTEXT.md) — one-page PT-BR bootstrap for a fresh assistant session (Intellissis convention)
 - [docs/delegation.md](docs/delegation.md) — charter for delegating work from cloud Claude to Ancalagon
+- [docs/handoff-llm-local-8gb.md](docs/handoff-llm-local-8gb.md) — handoff guide for replicating this setup on 8 GB AMD hardware (PT-BR)
 
 ## License
 
