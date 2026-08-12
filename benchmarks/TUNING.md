@@ -309,7 +309,9 @@ previsto: nada removido + sonames `.so.13` compatíveis. **Sem reboot.**
 **Efeito colateral útil:** como `/usr/local/cuda` → 13.3, um futuro rebuild do llama.cpp
 (via `scripts/build-llama.sh`) usará o 13.3. O 13.2 fica para os binários atuais.
 
-### Estado final do Ancalagon (pós Fases 1-4)
+### Estado do Ancalagon em 2026-06-08 (pós Fases 1-4)
+Snapshot daquela data — **superado**; o estado corrente está em § 13.
+
 - llama.cpp upstream `8f83d6c` (v668), fork TQ3 `8ad7180` (v9674)
 - Driver NVIDIA **610.43.02**, kernel **6.8.0-124**, CUDA default **13.3** (13.2 retido)
 - `apt list --upgradable` = **0**. 27 pacotes held (nvidia/kernel/cuda/dkms pinados).
@@ -340,3 +342,86 @@ expõem temperatura do conector 12VHPWR; ver design da skill delegando-ancalagon
 - `CRIT_TEMP=86°C` sustentado por `HOLD=30s` → corta o `llama-*.service` ativo.
   Fica antes do HW thermal slowdown (~87-88°C), com margem para o corte agir.
 - O default antigo (WARN 78) era próximo demais do pico normal — falsos positivos.
+
+## 13. Janela completa de atualização — SO + kernel + driver + llama.cpp (2026-08-12)
+
+Uma única janela cobrindo tudo que estava pendente: faixa segura de pacotes, kernel,
+driver NVIDIA e os dois binários do `llama.cpp`. Baseline de referência = janela de
+2026-07-20 (kernel `6.8.0-136`, `libcublas-13-3` → 13.6.0.2; registrada só em memória,
+não neste arquivo): coder ~80-87 tok/s, prefill do coder 1835 tok/s.
+
+### O que foi aplicado
+
+| Faixa | De | Para |
+|---|---|---|
+| Faixa segura `/noble` (17 pkgs) | — | `apport`/`python3-apport` 2.28.3, `libgit2-1.7` 1.7.2...3.1, stack `systemd` **255.4-1ubuntu8.16 → .17** (security), `linux-firmware` ...2.29 |
+| Kernel | `6.8.0-136` | **`6.8.0-137`** |
+| Driver `nvidia-open` | `610.43.02` | **`610.57.04`** |
+| llama.cpp upstream | `8f83d6c` (v668) | **`84e908c6`** (build 1503) — 835 commits |
+| Fork TQ3 | `8ad718007` (v9674) | **`58ad80ffb`** (v10369) — 823 commits |
+| CUDA | 13.3 | **intocado** (held; 0 upgradable) |
+
+**DKMS/Secure Boot:** `nvidia/610.57.04` construído para os 4 kernels presentes
+(110/124/136/**137**) e **autoassinado** pela `ancalagon Secure Boot Module Signature key`
+(sha512) — sem reassinatura manual, como na janela de julho. Pós-reboot: Secure Boot
+enabled, 4 módulos nvidia carregados. Kernel `6.8.0-136` retido no GRUB como fallback.
+
+### A/B do fork TQ3 (`perf/tq3-4s-decode-round2`)
+
+Única variável = versão do binário: os dois lados rodados **após** o reboot (mesmo kernel
+-137, mesmo driver 610.57.04), máquina em `load average 0.00`, flags idênticas ao
+`ExecStart` de `llama-qwen36.service`, cold-start descartado, 3 runs cada.
+
+| qwen36 TQ3 | v9674 (08/jun) | v10369 (12/ago) | Δ |
+|---|---|---|---|
+| decode | 38.50 tok/s (38.49-38.51) | **39.74 tok/s** (39.74-39.74) | **+3.2%** |
+| VRAM | 15424 MiB | 15038 MiB | **−386 MiB** |
+| Power | 317 W | 264 W | **−53 W** |
+| GPU util | 87% | 99% | +12 p.p. |
+
+Ganho pequeno mas **real** — ranges disjuntos e variância intra-lado praticamente nula.
+Chama atenção mais o perfil energético: +3% de throughput consumindo **53 W a menos**.
+
+### Benchmark final dos 3 presets (via systemd, config real do repo)
+
+| Preset | decode tok/s | range | threshold | prefill (prompt 1.5K) |
+|---|---|---|---|---|
+| coder | **84.57** | 82.35-85.72 | <55 | 2283 tok/s |
+| qwen36 TQ3 | **39.73** | 39.72-39.73 | <25 | 1316 tok/s |
+| gemma4 | **85.83** | 85.22-87.02 | <40 | 2410 tok/s |
+
+Nenhuma regressão: coder estável vs 20/jul (80-87), qwen36 +1% vs § 9/§ 10 (39.3),
+gemma4 −2.6% vs o pico de § 10 (88.1) mas dentro da faixa histórica (84.4-88.1).
+
+### Armadilhas encontradas (valem para a próxima janela)
+
+- **Prompt cache reuse invalida a medição de prefill.** O `prompt_per_second` do prompt
+  canônico despencou de 252 → 39.6 tok/s no build novo, o que parece regressão de 84%.
+  Não é: o `prompt_n` caiu de **21 → 4 tokens** — o build novo reaproveita o KV cache das
+  requisições anteriores e só reprocessa o sufixo. Com 4 tokens o número é overhead fixo,
+  não throughput. Medir prefill **exige prefixo único por rodada** (nonce no início do
+  prompt) e prompt longo; foi assim que saíram os 1316-2410 tok/s da tabela acima.
+- **Backup do `llama-server` sozinho não serve para rollback.** Desde a reestruturação em
+  shared libs (§ 8), o executável tem ~18 KB e resolve `libggml-cuda.so` & cia. por rpath.
+  O backup precisa ser do `build/bin` inteiro (~184 MB por repo) — guardado **fora** de
+  `build/`, que o rebuild limpo apaga. Aqui: `build-bin-bak-20260812/` nos dois repos.
+- **`scripts/build-llama.sh` falhava quando invocado por SSH** — `/usr/local/cuda/bin` não
+  entra no `$PATH` de sessão não-interativa e o cmake aborta com
+  `No CMAKE_CUDA_COMPILER could be found`. Corrigido no mesmo commit com
+  `-DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc` explícito (+ `rm -rf build`: o cache do
+  cmake envelhece mal ao pular 800+ commits). Mesmo padrão do gotcha de caminho absoluto
+  do `CLAUDE.md`.
+- **`-fa` mudou de assinatura no upstream** — agora é `[on|off|auto]` e o log não imprime
+  mais a linha de flash attention, então não dá para confirmar pelo journal. O `-fa 1` dos
+  três services **segue correto**: `common_arg_utils::is_truthy()` (`common/arg.cpp:1274`)
+  aceita `"1"` junto com `on`/`enabled`/`true` e mapeia para `LLAMA_FLASH_ATTN_TYPE_ENABLED`.
+  Não cai em `auto`. Verificar isso na fonte a cada sweep grande de upstream.
+
+### Estado do Ancalagon em 2026-08-12 (corrente)
+- llama.cpp upstream `84e908c6` (build 1503), fork TQ3 `58ad80ffb` (v10369)
+- Driver NVIDIA **610.57.04**, kernel **6.8.0-137**, CUDA **13.3** (held)
+- `apt list --upgradable` = **0**; kernel/nvidia re-held (23 pacotes) após o upgrade
+- Kernel `6.8.0-136` retido no GRUB como fallback; `build-bin-bak-20260812/` para rollback
+  dos binários
+- **Não feito, por decisão:** `do-release-upgrade` 24.04 → 26.04 LTS (`Prompt=lts` já
+  oferece) e qualquer CUDA > 13.3 — ambos exigem janela e A/B próprios.

@@ -10,9 +10,14 @@ case "${1:-}" in
 esac
 
 cd "$REPO"
+# rm -rf build: cache do cmake envelhece mal entre sweeps grandes de upstream.
+rm -rf build
+# CMAKE_CUDA_COMPILER explícito: `ssh host build-llama.sh` não carrega
+# /usr/local/cuda/bin no PATH e o cmake aborta com "No CMAKE_CUDA_COMPILER".
 cmake -B build \
   -DGGML_CUDA=ON \
   -DCMAKE_CUDA_ARCHITECTURES=89 \
+  -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
   -DCMAKE_BUILD_TYPE=Release \
   -DGGML_NATIVE=ON
 cmake --build build --config Release -j "$(nproc)" -t llama-server
