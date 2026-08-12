@@ -417,6 +417,22 @@ gemma4 −2.6% vs o pico de § 10 (88.1) mas dentro da faixa histórica (84.4-88
   aceita `"1"` junto com `on`/`enabled`/`true` e mapeia para `LLAMA_FLASH_ATTN_TYPE_ENABLED`.
   Não cai em `auto`. Verificar isso na fonte a cada sweep grande de upstream.
 
+### Suspend/resume S3 com o driver 610.57.04
+
+O caminho historicamente frágil do `nvidia-open` (§ 9), testado com o alvo padrão do
+Makefile: `make sleep` → `make wake`.
+
+- **Resume em 12s**, `uptime -s` idêntico ao pré-suspend (**S3 real**, não reboot).
+- `nvidia-smi` limpo em 610.57.04; **0 erros nvidia** no journal do boot.
+- **Inferência real pós-resume** (o que `nvidia-smi` sozinho não prova): coder mediu
+  **74.3 tok/s** logo após o resume e **79.3 tok/s** com o load assentando — a mesma
+  assinatura de cold-start da § 8 (73.5 → 78-79), não regressão do S3. Bem acima do
+  threshold de 55.
+- **`make wake` validado como está** (broadcast `255.255.255.255`). No cold boot desta
+  janela o host demorou ~2 min para responder e chegamos a repetir o pacote com
+  broadcast dirigido — mas o teste S3 mostra que o alvo padrão funciona; a demora era
+  tempo de boot, não pacote perdido. **Não mexer no Makefile.**
+
 ### Estado do Ancalagon em 2026-08-12 (corrente)
 - llama.cpp upstream `84e908c6` (build 1503), fork TQ3 `58ad80ffb` (v10369)
 - Driver NVIDIA **610.57.04**, kernel **6.8.0-137**, CUDA **13.3** (held)
