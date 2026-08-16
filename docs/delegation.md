@@ -135,7 +135,7 @@ Ancalagon é dual-boot Windows + Ubuntu. Há pelo menos quatro estados em que a 
 
 | Sintoma | Causa provável | Ação |
 |---|---|---|
-| `ssh Ancalagon_Ubuntu-Tailnet` dá timeout (>5s) | Máquina bootada no **Windows**, desligada, ou **suspensa** (`llsleep`) | Suspensa: mandar magic packet WoL do Mac (Lucas já tem setup via Tailscale). Windows/desligada: requer acesso físico |
+| `ssh Anc_U-T` dá timeout (>5s) | Máquina bootada no **Windows**, desligada, ou **suspensa** (`llsleep`) | Suspensa: mandar magic packet WoL do Mac (Lucas já tem setup via Tailscale). Windows/desligada: requer acesso físico |
 | `ssh` conecta mas `llstatus` mostra serviços `inactive` + `:1234 not responding` | Ubuntu up, services não subiram (boot limpo — eles não são `enabled`) | `llcoder` ou `llq36`, aguardar health OK (~20-60s) |
 | `llstatus` mostra service `active` mas `:1234 not responding` | Service crashou entre start e ready, ou mmap lento em reboot frio | `lloff && llcoder`; se persistir, `lllogs` para ver o erro |
 | Resposta HTTP 400 `exceed_context_size` | Prompt maior que ctx do service (atual: 96K) | Reduzir o prompt; considerar se o recorte foi bom; não reinicia o service |
@@ -144,7 +144,7 @@ Ancalagon é dual-boot Windows + Ubuntu. Há pelo menos quatro estados em que a 
 
 ```bash
 # 1. Ancalagon ligado e no Ubuntu?
-ssh -o ConnectTimeout=5 Ancalagon_Ubuntu-Tailnet 'uptime && systemctl --user is-active llama-coder.service'
+ssh -o ConnectTimeout=5 Anc_U-T 'uptime && systemctl --user is-active llama-coder.service'
 
 # 2. Porta 1234 responde?
 curl -m 3 -fs http://100.64.0.10:1234/health && echo OK

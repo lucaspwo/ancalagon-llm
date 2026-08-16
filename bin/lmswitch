@@ -94,13 +94,19 @@ case "$COMMAND" in
     ;;
   status)
     for svc in llama-coder llama-qwen36 llama-qwen38 llama-gemma4 lmstudio; do
-      state=$(systemctl --user is-active "$svc.service" 2>/dev/null || echo inactive)
-      printf '%-20s %s\n' "${svc}.service:" "$state"
+      # is-active já imprime o estado no stdout e sai com código != 0 quando não está
+      # ativo — um `|| echo inactive` aqui duplicaria a palavra na saída.
+      state=$(systemctl --user is-active "$svc.service" 2>/dev/null || true)
+      printf '%-20s %s\n' "${svc}.service:" "${state:-unknown}"
     done
     if curl -fs -o /dev/null "http://localhost:$PORT/health" 2>/dev/null; then
-      meta=$(curl -fs "http://localhost:$PORT/v1/models" 2>/dev/null | head -c 200 || true)
       echo ":$PORT healthy"
-      [ -n "$meta" ] && echo "  model: $(echo "$meta" | grep -oE '"id":"[^"]+"' | head -1)"
+      # /v1/models expõe o caminho do GGUF em "model" (o campo "id" saiu do payload
+      # em versões recentes do llama.cpp); não truncar antes do grep, o campo fica
+      # além dos primeiros bytes conforme o modelo.
+      meta=$(curl -fs "http://localhost:$PORT/v1/models" 2>/dev/null || true)
+      model=$(printf '%s' "$meta" | grep -oE '"model":"[^"]+"' | head -1 | sed 's/^"model":"//; s/"$//')
+      [ -n "$model" ] && echo "  model: $(basename "$model")"
     else
       echo ":$PORT not responding"
     fi

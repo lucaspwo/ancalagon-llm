@@ -4,7 +4,7 @@
 # Caminho 2 (iter): local-claude -p, Claude Code headless no Mac, inferência remota.
 set -euo pipefail
 
-REMOTE="${ANC_REMOTE:-Ancalagon_Ubuntu-Tailnet}"
+REMOTE="${ANC_REMOTE:-Anc_U-T}"
 HOST="${ANC_HOST:-ancalagon-ubuntu}"  # MagicDNS Tailscale (resolve dinâmico; sem IP hardcoded)
 PORT="${ANC_PORT:-1234}"
 WIN_HOST="${ANC_WIN_HOST:-ancalagon}" # nó Tailscale do Windows (MagicDNS)

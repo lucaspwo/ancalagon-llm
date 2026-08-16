@@ -15,7 +15,7 @@ Não inclui: compilação do `llama.cpp`, download de modelos, configuração de
 - Máquina: Ancalagon (dual-boot Windows + Ubuntu Server 24.04)
 - GPU: NVIDIA RTX 4070 Ti SUPER, 16 GB VRAM, CUDA 13.2
 - CPU: Ryzen 5 7600X (6c/12t)
-- Acesso: SSH por chave a `Ancalagon_Ubuntu-Tailnet` (Tailscale `100.64.0.10`, LAN `192.168.1.8`)
+- Acesso: SSH por chave a `Anc_U-T` (alias no `~/.ssh/config` do Glaurung → Tailscale `100.64.0.10`; LAN `192.168.1.8`)
 
 ## Arquitetura em uma tela
 

@@ -3,7 +3,7 @@
 # Idempotente: reexecutar sobrescreve. Não desabilita LM Studio automaticamente.
 set -euo pipefail
 
-REMOTE="${REMOTE_SSH_HOST:-Ancalagon_Ubuntu-Tailnet}"
+REMOTE="${REMOTE_SSH_HOST:-Anc_U-T}"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "Target: $REMOTE"

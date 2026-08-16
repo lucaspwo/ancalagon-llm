@@ -1,4 +1,4 @@
-REMOTE ?= Ancalagon_Ubuntu-Tailnet
+REMOTE ?= Anc_U-T
 
 .PHONY: install install-system install-gla install-skill wake status coder qwen36 qwen38 gemma4 off sleep logs video-off video-on video-status bootwin bootwin-dry
 
