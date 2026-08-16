@@ -24,6 +24,7 @@ Glaurung (Mac)                        Ancalagon-Ubuntu
 aliases .zshrc                         systemd --user (Conflicts= entre si):
   llcoder  ──ssh──▶                    llama-coder.service   (upstream)
   llq36    ──ssh──▶                    llama-qwen36.service  (fork TQ3)
+  (make qwen38) ───▶                   llama-qwen38.service  (fork TQ3, sem alias)
   llgemma4 ──ssh──▶                    llama-gemma4.service  (upstream)
   lloff    ──ssh──▶                    lmstudio.service      (DISABLED)
   srl-coder                                 │
@@ -33,7 +34,7 @@ aliases .zshrc                         systemd --user (Conflicts= entre si):
 curl http://100.64.0.10:1234 ──────────────┘
 ```
 
-Três services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio service foi desabilitado em `2026-04-22` e **não deve voltar** — a razão está em [`benchmarks/TUNING.md`](benchmarks/TUNING.md) (LM Studio subutilizava GPU em ~35% de utilização vs 96% com llama.cpp nativo + quant TQ3).
+Quatro services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio service foi desabilitado em `2026-04-22` e **não deve voltar** — a razão está em [`benchmarks/TUNING.md`](benchmarks/TUNING.md) (LM Studio subutilizava GPU em ~35% de utilização vs 96% com llama.cpp nativo + quant TQ3).
 
 ## Artefatos mantidos por este repo
 
@@ -41,13 +42,14 @@ Três services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio s
 |---|---|---|
 | `systemd/llama-coder.service` | user unit — Qwen3-Coder 30B MoE, `--n-cpu-moe 16`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
 | `systemd/llama-qwen36.service` | user unit — Qwen3.6-27B TQ3_4S (fork), KV q8/q8, ctx 40K | idem |
+| `systemd/llama-qwen38.service` | user unit — Qwen3.8-27B IQ3_M (fork), KV q8/q8, ctx 40K | idem |
 | `systemd/llama-gemma4.service` | user unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 8`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
-| `bin/lmswitch` | wrapper com subcomandos `coder\|qwen36\|gemma4\|off\|sleep\|status\|logs` | `~/.local/bin/` no Ancalagon |
+| `bin/lmswitch` | wrapper com subcomandos `coder\|qwen36\|qwen38\|gemma4\|off\|sleep\|status\|logs` | `~/.local/bin/` no Ancalagon |
 | `bin/gpu-guard` | watchdog térmico (nvidia-smi, escalonado WARN/CRIT) | `~/.local/bin/` + user unit `enabled` |
 | `systemd/gpu-guard.service` | user unit do watchdog, persistente (sobe no boot) | `~/.config/systemd/user/` no Ancalagon |
 | `skills/delegando-ancalagon/` | skill global + `anc-delegate` (delegação headless do cloud) | symlink em `~/.claude/skills/` no Mac |
 | `scripts/install.sh` | deploy idempotente via scp + daemon-reload | — (roda do Mac) |
-| `Makefile` | targets `install`/`install-skill`/`coder`/`qwen36`/`gemma4`/`off`/`sleep`/`wake`/`status`/`logs` | — |
+| `Makefile` | targets `install`/`install-skill`/`coder`/`qwen36`/`qwen38`/`gemma4`/`off`/`sleep`/`wake`/`status`/`logs` | — |
 
 ## Decisões não-óbvias
 
@@ -59,7 +61,7 @@ Três services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio s
 
 ## Estado atual (2026-04-24)
 
-- Services rodando com `ctx=96K` no coder, `ctx=40K` no qwen36, `ctx=96K` no gemma4 (alternativa ao coder)
+- Services rodando com `ctx=96K` no coder, `ctx=40K` no qwen36, `ctx=40K` no qwen38, `ctx=96K` no gemma4 (alternativa ao coder)
 - Documentação em 3 arquivos: `README.md` (arquitetura), `CLAUDE.md` (visão para futuras sessões Claude), `docs/delegation.md` (charter para delegação do cloud para Ancalagon)
 - Mac `.zshrc` tem aliases `llcoder`/`llq36`/`llgemma4`/`lloff`/`llsleep`/`llstatus`/`lllogs` (controle) e `srl-coder`/`srl-tq`/`srl` (entrada no Claude Code)
 - `lmstudio.service` stopped + disabled no Ancalagon (conflito de VRAM e porta com os llama services)
@@ -74,7 +76,7 @@ Três services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio s
 make install
 
 # Restart do service afetado
-make coder     # ou make qwen36, make gemma4
+make coder     # ou make qwen36, make qwen38, make gemma4
 
 # Verificar saúde
 make status
@@ -83,6 +85,7 @@ make status
 # Thresholds de regressão:
 #   coder: <55 tok/s = regressão
 #   qwen36: <25 tok/s = regressão
+#   qwen38: <25 tok/s = regressão
 #   gemma4: <40 tok/s = regressão
 ```
 

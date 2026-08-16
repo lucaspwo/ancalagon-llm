@@ -4,9 +4,9 @@
 
 Este repo é **infraestrutura operacional**, não uma aplicação: é o conjunto de units systemd, scripts shell e um Makefile que transformam o Ancalagon (Ubuntu Server 24.04 dual-boot, RTX 4070 Ti SUPER 16 GB) num servidor LLM local dedicado, expondo uma API OpenAI-compatível na porta `1234` via Tailscale.
 
-Três presets de modelo (`llama-coder`, `llama-qwen36`, `llama-gemma4`) rodam como units systemd `--user` no Ancalagon, todos com `Conflicts=` cruzado entre si e com `lmstudio.service` — systemd garante atomicamente que só um está ativo por vez, sem lógica manual de stop/start. `bin/lmswitch` (também no Ancalagon, deployado por este repo) é o wrapper que troca de preset e faz health-check.
+Quatro presets de modelo (`llama-coder`, `llama-qwen36`, `llama-qwen38`, `llama-gemma4`) rodam como units systemd `--user` no Ancalagon, todos com `Conflicts=` cruzado entre si e com `lmstudio.service` — systemd garante atomicamente que só um está ativo por vez, sem lógica manual de stop/start. `bin/lmswitch` (também no Ancalagon, deployado por este repo) é o wrapper que troca de preset e faz health-check.
 
-Do lado do Mac (Glaurung), aliases no `.zshrc` chamam `ssh <remote> lmswitch <subcomando>` — o Makefile deste repo espelha os mesmos subcomandos como `make coder`/`make qwen36`/etc. para quem prefere rodar do checkout local. Um segundo componente Mac-side, `clients/glaurung-llm/gla`, replica a mesma UX (mutex de porta + start + troca de modelo) para rodar inferência **localmente** no Mac (llama.cpp Metal ou MLX), sem depender do Ancalagon.
+Do lado do Mac (Glaurung), aliases no `.zshrc` chamam `ssh <remote> lmswitch <subcomando>` — o Makefile deste repo espelha os mesmos subcomandos como `make coder`/`make qwen36`/`make qwen38`/etc. para quem prefere rodar do checkout local. Um segundo componente Mac-side, `clients/glaurung-llm/gla`, replica a mesma UX (mutex de porta + start + troca de modelo) para rodar inferência **localmente** no Mac (llama.cpp Metal ou MLX), sem depender do Ancalagon.
 
 Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Code (instalada no Mac) que usa o helper `anc-delegate` para delegar trabalho de código ao Ancalagon de forma headless — liga a máquina, sobe o modelo certo e roda geração one-shot (`gen`) ou uma sessão `local-claude` com tools (`iter`), economizando tokens do Claude Code cloud.
 
@@ -38,7 +38,7 @@ Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Co
 ## Onde ficam as funções-chave
 
 - `bin/lmswitch:24` — `wait_ready()` — poll de até 90s no `/health` do service recém-iniciado, aborta se o service cair
-- `bin/lmswitch:46` — `case "$COMMAND" in` — dispatch dos subcomandos `coder|qwen36|gemma4|off|sleep|status|logs`
+- `bin/lmswitch:47` — `case "$COMMAND" in` — dispatch dos subcomandos `coder|qwen36|qwen38|gemma4|off|sleep|status|logs`
 - `bin/lmswitch:71` — case `sleep|suspend` — para todos os services e dispara `sudo -n systemctl suspend` destacado com `nohup … & disown` para não bloquear a sessão SSH
 - `bin/gpu-guard:12` — `WARN_TEMP`/`CRIT_TEMP` — limiares 82°C/86°C calibrados empiricamente (pico normal do die = 77°C sob 320W)
 - `bin/gpu-guard:22` — `active_llama()` — descobre qual dos três `llama-*.service` está ativo
@@ -73,7 +73,7 @@ Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Co
 `llcoder` (alias) → `ssh Ancalagon_Ubuntu-Tailnet lmswitch coder` → `bin/lmswitch:46` dispatch → para os outros dois services → `systemctl --user start llama-coder.service` → `wait_ready()` faz poll em `:1234/health` → confirma pronto.
 
 **Deploy de mudança em unit/script:**
-Editar `systemd/*.service` ou `bin/*` neste repo → `make install` → `scripts/install.sh` copia via `scp` para `~/.config/systemd/user/` e `~/.local/bin/` no Ancalagon → `systemctl --user daemon-reload` remoto → `make coder`/`make qwen36`/`make gemma4` para reiniciar com a nova config.
+Editar `systemd/*.service` ou `bin/*` neste repo → `make install` → `scripts/install.sh` copia via `scp` para `~/.config/systemd/user/` e `~/.local/bin/` no Ancalagon → `systemctl --user daemon-reload` remoto → `make coder`/`make qwen36`/`make qwen38`/`make gemma4` para reiniciar com a nova config.
 
 **Watchdog térmico:**
 `gpu-guard.service` (persistente, sobe no boot) → `bin/gpu-guard` faz loop de `nvidia-smi` → em CRIT sustentado por 30s, chama `systemctl --user stop` no service `llama-*` ativo (descoberto via `active_llama()`) → o preset cai, GPU esfria; usuário decide se sobe de novo.
@@ -108,7 +108,7 @@ Claude Code cloud monta um briefing autocontido → `anc-delegate preflight` gar
 ## Build / Test / Lint / Deploy
 
 - **Build**: não há build deste repo em si — os binários `llama-server` (upstream e fork TQ3) são compilados manualmente no Ancalagon, fora do escopo deste repo (`scripts/build-llama.sh` é referência, não automatizado por `make`).
-- **Test**: não há suíte de testes automatizada. Validação é manual: `make status` + um benchmark rápido de referência (prompt fixo "Explain quantum entanglement in 5 paragraphs", 400 tokens) comparado contra os thresholds de regressão documentados em `AI_CONTEXT.md` § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, gemma4 <40 tok/s = regressão).
+- **Test**: não há suíte de testes automatizada. Validação é manual: `make status` + um benchmark rápido de referência (prompt fixo "Explain quantum entanglement in 5 paragraphs", 400 tokens) comparado contra os thresholds de regressão documentados em `AI_CONTEXT.md` § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s = regressão).
 - **Lint**: os scripts em `bin/` são shellcheck-clean por convenção (`set -euo pipefail`, tudo entre aspas) — não há hook automatizado, rodar `shellcheck bin/*` manualmente antes de commitar mudanças em shell.
 - **Deploy**: `make install` (units + wrappers), `make install-system` (pré-requisitos de sistema, uma vez por máquina), `make install-gla` / `make install-skill` (componentes Mac-side). Todos idempotentes — reexecutar sobrescreve sem efeito colateral.
 

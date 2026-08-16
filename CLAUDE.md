@@ -6,7 +6,7 @@ Provisionamento operacional do Ancalagon (Ubuntu Server, RTX 4070 Ti SUPER) como
 
 ```bash
 make status               # estado dos 3 services + health probe :1234
-make coder|qwen36|gemma4  # sobe o preset (para os outros automaticamente via Conflicts=)
+make coder|qwen36|qwen38|gemma4  # sobe o preset (para os outros automaticamente via Conflicts=)
 make off                  # para o preset ativo
 make sleep                # para + suspende a máquina (wake via WoL: make wake)
 make logs                 # journalctl -f do service ativo
@@ -14,7 +14,7 @@ make install               # deploy de units + wrappers (scp + daemon-reload) no
 make install-system        # pré-requisitos de sistema (WoL, nvidia-suspend, console-font) — 1x por máquina
 ```
 
-Não há build nem suíte de testes automatizada neste repo (ver [MANUTENCAO.md](MANUTENCAO.md) § Build/Test/Lint/Deploy). Validação de mudança é `make status` + benchmark manual contra os thresholds de regressão em [`AI_CONTEXT.md`](AI_CONTEXT.md) § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, gemma4 <40 tok/s).
+Não há build nem suíte de testes automatizada neste repo (ver [MANUTENCAO.md](MANUTENCAO.md) § Build/Test/Lint/Deploy). Validação de mudança é `make status` + benchmark manual contra os thresholds de regressão em [`AI_CONTEXT.md`](AI_CONTEXT.md) § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s).
 
 ## Gotchas (top 5)
 

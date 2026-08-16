@@ -1,6 +1,6 @@
 [Unit]
 Description=llama.cpp server - Gemma 4 26B-A4B-it (MoE, n-cpu-moe=8, KV q4_0)
-Conflicts=llama-coder.service llama-qwen36.service lmstudio.service
+Conflicts=llama-coder.service llama-qwen36.service llama-qwen38.service lmstudio.service
 After=network-online.target
 Wants=network-online.target
 

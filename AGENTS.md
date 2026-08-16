@@ -6,14 +6,15 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 
 | Path | Purpose |
 |---|---|
-| `Makefile` | Entry points: `install`, `install-system`, `install-gla`, `install-skill`, `wake`, `status`, `coder`, `qwen36`, `gemma4`, `off`, `sleep`, `logs`, `video-{off,on,status}`, `bootwin{,-dry}` |
+| `Makefile` | Entry points: `install`, `install-system`, `install-gla`, `install-skill`, `wake`, `status`, `coder`, `qwen36`, `qwen38`, `gemma4`, `off`, `sleep`, `logs`, `video-{off,on,status}`, `bootwin{,-dry}` |
 | `systemd/llama-coder.service` | Unit — Qwen3-Coder-30B MoE, `--n-cpu-moe 16`, KV q4/q4, ctx 98304 |
 | `systemd/llama-qwen36.service` | Unit — Qwen3.6-27B-TQ3_4S (fork `turbo-tan/llama.cpp-tq3`), KV q8/q8, ctx 40960 |
+| `systemd/llama-qwen38.service` | Unit — Qwen3.8-27B-IQ3_M (fork `turbo-tan/llama.cpp-tq3`), KV q8/q8, ctx 40960 |
 | `systemd/llama-gemma4.service` | Unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 8`, KV q4/q4, ctx 98304 |
 | `systemd/gpu-guard.service` | Unit — thermal watchdog, `enabled` (persistent, unlike the three above) |
 | `systemd/99-wol.yaml` | netplan override — arms Wake-on-LAN on `eno1` |
 | `systemd/console-setup` | `/etc/default/console-setup` — TTY font config |
-| `bin/lmswitch` | Preset switcher (runs on Ancalagon): `coder\|qwen36\|gemma4\|off\|sleep\|status\|logs` |
+| `bin/lmswitch` | Preset switcher (runs on Ancalagon): `coder\|qwen36\|qwen38\|gemma4\|off\|sleep\|status\|logs` |
 | `bin/gpu-guard` | Thermal watchdog daemon (nvidia-smi polling loop) |
 | `bin/videoswitch` | DPMS toggle for the physical console (`off\|on\|status`) |
 | `bin/bootwin` | One-shot UEFI reboot into Windows (`--dry-run` supported) |
@@ -34,7 +35,7 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 ## Key symbols
 
 - `bin/lmswitch:24` — `wait_ready()` — polls `/health` up to 90s after starting a service; aborts if the unit isn't active
-- `bin/lmswitch:46` — main `case "$COMMAND" in` dispatch for `coder|qwen36|gemma4|off|sleep|status|logs`
+- `bin/lmswitch:47` — main `case "$COMMAND" in` dispatch for `coder|qwen36|qwen38|gemma4|off|sleep|status|logs`
 - `bin/lmswitch:71` — `sleep|suspend` case — stops all three llama services, detaches `sudo -n systemctl suspend` via `nohup … & disown`
 - `bin/gpu-guard:12` — `WARN_TEMP`/`CRIT_TEMP` defaults (82°C / 86°C), empirically calibrated
 - `bin/gpu-guard:22` — `active_llama()` — finds which of the three `llama-*.service` units is active
@@ -66,10 +67,10 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 ## Commands
 
 - Build: none — `llama-server` (upstream + TQ3 fork) is compiled manually on Ancalagon, outside this repo's scope (`scripts/build-llama.sh` is a reference only)
-- Test: none — no automated suite. Manual validation via `make status` + a fixed benchmark prompt against the regression thresholds in `AI_CONTEXT.md` § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, gemma4 <40 tok/s = regression)
+- Test: none — no automated suite. Manual validation via `make status` + a fixed benchmark prompt against the regression thresholds in `AI_CONTEXT.md` § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s = regression)
 - Lint: `shellcheck bin/*` (manual, not hooked into CI — there is no CI in this repo)
 - Deploy: `make install` (units + wrappers) · `make install-system` (one-time host prerequisites) · `make install-gla` / `make install-skill` (Mac-side components)
-- Run: `make coder` / `make qwen36` / `make gemma4` (start a preset) · `make status` (health) · `make logs` (tail journal) · `make off` / `make sleep` (stop / suspend)
+- Run: `make coder` / `make qwen36` / `make qwen38` / `make gemma4` (start a preset) · `make status` (health) · `make logs` (tail journal) · `make off` / `make sleep` (stop / suspend)
 
 ## Conventions & constraints
 

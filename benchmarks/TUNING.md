@@ -441,3 +441,59 @@ Makefile: `make sleep` → `make wake`.
   dos binários
 - **Não feito, por decisão:** `do-release-upgrade` 24.04 → 26.04 LTS (`Prompt=lts` já
   oferece) e qualquer CUDA > 13.3 — ambos exigem janela e A/B próprios.
+
+## 14. Adição do preset Qwen3.8-27B (2026-08-16)
+
+O Qwen3.8-27B saiu em 13-14/ago/2026 (Apache 2.0, 28B densos, 64 camadas, 262k de
+contexto nativo, com vision encoder). Entrou como **quarto preset**, sem substituir o
+`qwen36` — os dois convivem em disco (13 GiB cada).
+
+### Não foi preciso recompilar o llama.cpp
+
+Confirmado por três vias independentes antes de baixar qualquer coisa:
+
+| Evidência | Resultado |
+|---|---|
+| `config.json` oficial do `Qwen/Qwen3.8-27B` | `model_type: "qwen3_5"` / `Qwen3_5ForConditionalGeneration` |
+| `strings libllama.so` do fork TQ3 (`58ad80ffb`) | `qwen35` presente na lista de arquiteturas |
+| GGUF do Qwen3.6 já em produção | `general.architecture = qwen35` |
+
+Ou seja, o modelo novo **reusa a arquitetura Qwen3.5**, cuja code path já roda nesta
+máquina desde abril. Rebuild descartado com evidência, não por suposição.
+
+### Escolha do quant
+
+Âncora: o TQ3_4S do `qwen36` ocupa **13 GiB** de pesos e cabe 100% na GPU com `-c 40960`
+e KV `q8_0`. Alvo, portanto, ~13 GiB. Escolhido **IQ3_M** (13,90 GB decimais = **12,94
+GiB**), de `bartowski/Qwen3.8-27B-GGUF`. Fallback IQ3_XS (12,41 GiB) não foi necessário.
+
+> **Atenção às unidades:** o HuggingFace reporta GB decimais e o `ls -lh` mostra GiB —
+> "13G" no `ls` ≈ 13,96 GB no HF. Confundir os dois faz um quant parecer caber quando não cabe.
+> `Q3_K_M` (13,61 GiB) e acima provavelmente estouram.
+
+### Medições (flags idênticas ao `qwen36`, load average 0.13 = sem contenção)
+
+| Métrica | Qwen3.8-27B IQ3_M | Qwen3.6-27B TQ3_4S |
+|---|---|---|
+| Decode | **39,2 – 40,3 tok/s** | 39,73 tok/s |
+| Prefill (`prompt_n=4634`) | **1650,6 tok/s** | — |
+| VRAM | **14918 / 16376 MiB** (~1,4 GiB livres) | — |
+
+Modelo mais novo, throughput equivalente, e ainda sobrou VRAM.
+
+### Armadilhas registradas
+
+- **Prefill com prompt curto mente.** Com `prompt_n=35` o mesmo servidor mediu 141 tok/s;
+  com `prompt_n=4634`, 1650 tok/s. O setup domina prompts curtos — sempre medir prefill
+  com prompt longo e `cache_prompt: false`.
+- **`W model has unused tensor blk.64.nextn.*`** — é a cabeça de Multi-Token Prediction
+  (MTP), que o llama.cpp ignora. Benigno: não afeta correção, só não há aceleração
+  especulativa.
+- **`W common_fit_params: failed to fit params to free device memory: n_gpu_layers
+  already set by user to 99, abort`** — é **warning, não erro**. Só avisa que não vai
+  auto-ajustar porque `-ngl` foi fixado. Fácil de confundir com falha ao varrer o log com
+  `grep -i error`.
+- **`mmproj` (vision) não baixado** — custa VRAM que não sobra e o preset serve o endpoint
+  de código na `:1234`.
+- Requantizar para TQ3_4S no fork é viável a partir do **Q8_0** (29 GB); o **bf16
+  (54,66 GB) não cabe** nos 37 GB livres de disco.

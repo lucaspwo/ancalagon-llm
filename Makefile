@@ -1,6 +1,6 @@
 REMOTE ?= Ancalagon_Ubuntu-Tailnet
 
-.PHONY: install install-system install-gla install-skill wake status coder qwen36 gemma4 off sleep logs video-off video-on video-status bootwin bootwin-dry
+.PHONY: install install-system install-gla install-skill wake status coder qwen36 qwen38 gemma4 off sleep logs video-off video-on video-status bootwin bootwin-dry
 
 install:
 	@bash scripts/install.sh
@@ -35,6 +35,9 @@ coder:
 
 qwen36:
 	@ssh $(REMOTE) /home/lucas/.local/bin/lmswitch qwen36
+
+qwen38:
+	@ssh $(REMOTE) /home/lucas/.local/bin/lmswitch qwen38
 
 gemma4:
 	@ssh $(REMOTE) /home/lucas/.local/bin/lmswitch gemma4

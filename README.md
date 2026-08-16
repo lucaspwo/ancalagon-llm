@@ -1,6 +1,6 @@
 # ancalagon-llm
 
-Operational setup for **Ancalagon** (Ubuntu Server 24.04, dual-boot with Windows) as a dedicated local LLM server, tuned for an RTX 4070 Ti SUPER (16 GB VRAM). Replaces LM Studio with native `llama.cpp` controlled by systemd, exposing three mutually-exclusive model presets — Qwen3-Coder 30B (MoE, upstream), Qwen3.6-27B (TQ3 ternary quant, `turbo-tan/llama.cpp-tq3` fork) and Gemma 4 26B-A4B-it (MoE, upstream) — all on the same OpenAI-compatible port so existing clients don't need to change URLs. Consumed from a Mac (Glaurung) over Tailscale.
+Operational setup for **Ancalagon** (Ubuntu Server 24.04, dual-boot with Windows) as a dedicated local LLM server, tuned for an RTX 4070 Ti SUPER (16 GB VRAM). Replaces LM Studio with native `llama.cpp` controlled by systemd, exposing four mutually-exclusive model presets — Qwen3-Coder 30B (MoE, upstream), Qwen3.6-27B (TQ3 ternary quant, `turbo-tan/llama.cpp-tq3` fork), Qwen3.8-27B (IQ3_M, same fork) and Gemma 4 26B-A4B-it (MoE, upstream) — all on the same OpenAI-compatible port so existing clients don't need to change URLs. Consumed from a Mac (Glaurung) over Tailscale.
 
 ## Motivation
 
@@ -28,6 +28,7 @@ Glaurung (Mac)                    Ancalagon-Ubuntu
 aliases:                          systemd --user:
   llcoder  ──────ssh─────▶        llama-coder.service ──┐
   llq36    ──────ssh─────▶        llama-qwen36.service ─┤
+  (make qwen38) ─────────▶        llama-qwen38.service ─┤
   llgemma4 ──────ssh─────▶        llama-gemma4.service ─┼─ Conflicts=
   lloff    ──────ssh─────▶        (lmstudio.service    ─┘  (only one up)
   llstatus ──────ssh─────▶        + disabled)
@@ -38,7 +39,7 @@ aliases:                          systemd --user:
 curl http://<ancalagon-tailscale-ip>:1234 ─┘
 ```
 
-Port **1234** is the same one LM Studio used to bind, so existing clients keep working unmodified. The three `llama-*.service` units declare `Conflicts=` against each other and against `lmstudio.service`, so systemd guarantees only one is ever running — no manual stop/start choreography, no risk of two models fighting over the same 16 GB of VRAM.
+Port **1234** is the same one LM Studio used to bind, so existing clients keep working unmodified. The four `llama-*.service` units declare `Conflicts=` against each other and against `lmstudio.service`, so systemd guarantees only one is ever running — no manual stop/start choreography, no risk of two models fighting over the same 16 GB of VRAM.
 
 ## Stack / Requirements
 
@@ -79,6 +80,7 @@ Services are **not enabled by default** — a clean boot starts nothing; you inv
 ```bash
 make coder     # start Qwen3-Coder-30B (MoE, --n-cpu-moe 16, ctx 96K)
 make qwen36    # start Qwen3.6-27B-TQ3_4S (100% GPU, ctx 40K)
+make qwen38    # start Qwen3.8-27B-IQ3_M (100% GPU, ctx 40K)
 make gemma4    # start Gemma 4 26B-A4B-it (MoE, --n-cpu-moe 8, ctx 96K)
 make off       # stop whichever preset is active
 make sleep     # stop + suspend the whole machine (wake via WoL)
@@ -113,7 +115,7 @@ anc_win_restart    # from Windows → normal reboot, lands on Ubuntu (the defaul
 
 ```
 bin/                    lmswitch, gpu-guard, videoswitch, bootwin — the operational wrapper scripts
-systemd/                llama-{coder,qwen36,gemma4}.service, gpu-guard.service, 99-wol.yaml, console-setup
+systemd/                llama-{coder,qwen36,qwen38,gemma4}.service, gpu-guard.service, 99-wol.yaml, console-setup
 scripts/                install.sh (deploy), setup-system.sh (WoL/nvidia-suspend/console prerequisites), build-llama.sh
 clients/glaurung-llm/   gla — Mac-side backend switcher (llama.cpp Metal / MLX) + TUNING.md
 clients/opencode/       opencode.json template + README for wiring opencode to Ancalagon/Glaurung backends
