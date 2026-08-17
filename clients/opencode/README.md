@@ -9,7 +9,29 @@ brew install sst/tap/opencode
 # ou: npm i -g opencode-ai
 ```
 
-## Uso do `opencode.json` deste diretório
+## Caminho vigente: `llm-gateway` (Scatha)
+
+Desde 2026-07-07 o `~/.config/opencode/opencode.json` real do Mac **não** aponta
+direto para o Ancalagon — aponta para `http://llm.home.lab/v1` (`provider.ancalagon.options.baseURL`),
+um gateway OpenAI-compatible (`homelab/compose/llm-gateway/`) rodando no Scatha (LXC 110) que:
+
+- Acorda o Ancalagon sob demanda (SSH + WoL + `lmswitch`), sem precisar do `anc_lin_*` manual antes.
+- Faz **hot-swap** de preset por-request: pedir `qwen38` com o `coder` carregado troca sozinho.
+- Anuncia sempre os 4 aliases em `/v1/models`, acordado ou dormindo.
+
+Não é preciso rodar `anc_lin_*` nem editar `opencode.json` para o dia a dia — é só usar
+`/model ancalagon/<preset>` no `opencode` e o gateway resolve o resto (~20-70s no cold
+start/troca, com heartbeat SSE cobrindo o timeout do cliente).
+
+⚠️ **`ANC_MODELS` no `.env` do gateway precisa espelhar os presets do `lmswitch` deste
+repo** — é a lista que ele anuncia, o allowlist do `/v1/chat/completions` **e** a lista
+que detecta o preset ativo. Um preset novo aqui (`systemd/llama-*.service` + `bin/lmswitch`)
+que não entrar em `ANC_MODELS` fica invisível ao gateway: ele passa a servir o modelo
+carregado sob **qualquer** alias pedido, sem erro. Ver `homelab/compose/llm-gateway/README.md`.
+
+## `opencode.json` deste diretório — fallback direto ao Ancalagon
+
+Uso quando o Scatha/gateway estiver fora do ar, ou para bypassar o gateway de propósito.
 
 > **Nota sobre o IP:** o `baseURL` do arquivo versionado usa `100.64.0.10` como placeholder (convenção do repo para artefatos públicos). O IP real do Ancalagon-Ubuntu na Tailscale é diferente — substitua ao instalar.
 >
@@ -30,11 +52,10 @@ sed -i '' 's|100\.64\.0\.10|<IP_REAL>|' ~/git/<projeto>/opencode.json
 
 Confirmar IP real com `tailscale status | grep ancalagon-ubuntu`.
 
-## Pré-condição: subir o modelo
+### Pré-condição: subir o modelo manualmente
 
-`opencode` é cliente puro — o provider só responde se algum service estiver ativo.
-
-### Ancalagon (remoto via Tailscale)
+Só se aplica a este fallback — o `llm-gateway` faz isso sozinho. `opencode` é cliente
+puro; o provider direto só responde se algum service estiver ativo.
 
 ```bash
 # do Mac, via SSH (alias do .zshrc)
