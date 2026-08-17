@@ -1,4 +1,4 @@
-# netplan override — arma Wake-on-LAN na eno1 para resume após `llsleep`.
+# netplan override — arma Wake-on-LAN na eno1 para resume após `anc_lin_sleep`.
 #
 # Destino: /etc/netplan/99-wol.yaml no Ancalagon (permissão 0600).
 # Nome 99-* para fazer merge DEPOIS do 50-cloud-init.yaml (auto-gerado).

@@ -64,9 +64,10 @@ escrever o briefing nem de revisar. Some-os ao decidir se valeu.
 ## Guard-rails
 
 - Briefing > 40K tokens = recorte ruim. Pare e re-planeje (o `gen` também aborta).
-- **Nunca desligue o service depois** — deixe para o Lucas via `lloff`/`make off`.
-- Modelo: default `coder`. Use `--model qwen36` para tarefas que pedem reasoning
-  explícito (mais lento, 37 tok/s, mas com cadeia de raciocínio).
+- **Nunca desligue o service depois** — deixe para o Lucas via `anc_lin_off`/`make off`.
+- Modelo: default `coder`. Use `--model qwen36` ou `--model qwen38` para tarefas que
+  pedem reasoning explícito (mais lentos, ~40 tok/s, mas com cadeia de raciocínio).
+  Entre os dois, `qwen38` é o modelo mais novo (ago/2026) com throughput equivalente.
 - Se o `anc-delegate` reportar que a `:1234` caiu durante o trabalho, pode ser
   corte térmico do `gpu-guard` (watchdog parou o service por temperatura
   sustentada). Pare e reporte — não retente.

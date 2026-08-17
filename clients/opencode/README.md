@@ -38,8 +38,8 @@ Confirmar IP real com `tailscale status | grep ancalagon-ubuntu`.
 
 ```bash
 # do Mac, via SSH (alias do .zshrc)
-llcoder    # ou llq36 / llgemma4
-llstatus   # confirma :1234 respondendo
+anc_lin_coder    # ou anc_lin_qwen36 / anc_lin_qwen38 / anc_lin_gemma4
+anc_lin_status   # confirma :1234 respondendo
 ```
 
 ### Glaurung (local, M4 Pro)

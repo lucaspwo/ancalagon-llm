@@ -76,7 +76,7 @@ O host resolve via MagicDNS Tailscale (`ancalagon-ubuntu`) — o `100.64.0.10` d
 doc é fictício. Reboot Windows→Linux usa o nó `ancalagon` (OpenSSH no Windows;
 override `ANC_WIN_HOST`). Guard-rails (40K tokens, nunca desligar service, corte
 térmico do `gpu-guard`) estão na `SKILL.md`. Modelo default `coder`;
-`--model qwen36` para reasoning.
+`--model qwen36` ou `--model qwen38` para reasoning.
 
 ## Formato de briefing autocontido
 
@@ -125,9 +125,10 @@ Regra prática: **se o briefing ficou maior que 40K tokens, algo está errado**.
 
 ## Modelo certo para o trabalho
 
-- **`llcoder && srl-coder`** (Qwen3-Coder 30B MoE, 78 tok/s) — código em geral, testes, refactor
-- **`llq36 && srl-tq`** (Qwen3.6-27B TQ3, 37 tok/s + reasoning) — tarefas que pedem análise mais cuidadosa, debugging com raciocínio explícito
-- **`llcoder` é o default**; escolher `llq36` quando o problema pedir reflexão acima de throughput
+- **`anc_lin_coder && srl-coder`** (Qwen3-Coder 30B MoE, 78 tok/s) — código em geral, testes, refactor
+- **`anc_lin_qwen36 && srl-tq`** (Qwen3.6-27B TQ3, 40 tok/s + reasoning) — tarefas que pedem análise mais cuidadosa, debugging com raciocínio explícito
+- **`anc_lin_qwen38 && srl-coder`** (Qwen3.8-27B IQ3_M, 40 tok/s + reasoning) — mesmo perfil do `qwen36`, modelo mais novo (ago/2026)
+- **`anc_lin_coder` é o default**; escolher `qwen36`/`qwen38` quando o problema pedir reflexão acima de throughput
 
 ## Quando o Ancalagon está indisponível
 
@@ -135,9 +136,9 @@ Ancalagon é dual-boot Windows + Ubuntu. Há pelo menos quatro estados em que a 
 
 | Sintoma | Causa provável | Ação |
 |---|---|---|
-| `ssh Anc_U-T` dá timeout (>5s) | Máquina bootada no **Windows**, desligada, ou **suspensa** (`llsleep`) | Suspensa: mandar magic packet WoL do Mac (Lucas já tem setup via Tailscale). Windows/desligada: requer acesso físico |
-| `ssh` conecta mas `llstatus` mostra serviços `inactive` + `:1234 not responding` | Ubuntu up, services não subiram (boot limpo — eles não são `enabled`) | `llcoder` ou `llq36`, aguardar health OK (~20-60s) |
-| `llstatus` mostra service `active` mas `:1234 not responding` | Service crashou entre start e ready, ou mmap lento em reboot frio | `lloff && llcoder`; se persistir, `lllogs` para ver o erro |
+| `ssh Anc_U-T` dá timeout (>5s) | Máquina bootada no **Windows**, desligada, ou **suspensa** (`anc_lin_sleep`) | Suspensa: mandar magic packet WoL do Mac (Lucas já tem setup via Tailscale). Windows/desligada: requer acesso físico |
+| `ssh` conecta mas `anc_lin_status` mostra serviços `inactive` + `:1234 not responding` | Ubuntu up, services não subiram (boot limpo — eles não são `enabled`) | `anc_lin_coder` (ou `anc_lin_qwen36`/`anc_lin_qwen38`), aguardar health OK (~20-60s) |
+| `anc_lin_status` mostra service `active` mas `:1234 not responding` | Service crashou entre start e ready, ou mmap lento em reboot frio | `anc_lin_off && anc_lin_coder`; se persistir, `anc_lin_logs` para ver o erro |
 | Resposta HTTP 400 `exceed_context_size` | Prompt maior que ctx do service (atual: 96K) | Reduzir o prompt; considerar se o recorte foi bom; não reinicia o service |
 
 ### Diagnóstico do Mac

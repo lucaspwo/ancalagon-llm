@@ -22,7 +22,8 @@ Usage: anc-delegate <command> [args]
                                      iteração via local-claude -p (Claude Code + tools)
   health                             snapshot nvidia-smi + service ativo (JSON)
 
-  --model {coder|qwen36|gemma4}      força um service (default: usa o ativo, senão coder)
+  --model {coder|qwen36|qwen38|gemma4}
+                                     força um service (default: usa o ativo, senão coder)
 EOF
   exit 1
 }
@@ -35,7 +36,7 @@ is_linux_up() { [[ "$(ssh_linux 'uname -s' || true)" == "Linux" ]]; }
 
 active_service() {
   # shellcheck disable=SC2016
-  ssh_linux 'for s in llama-coder llama-qwen36 llama-gemma4; do
+  ssh_linux 'for s in llama-coder llama-qwen36 llama-qwen38 llama-gemma4; do
     systemctl --user is-active --quiet "$s.service" && echo "$s" && break
   done' || true
 }

@@ -70,7 +70,7 @@ Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Co
 ## Fluxos de dados
 
 **Troca de preset (uso normal, do Mac):**
-`llcoder` (alias) → `ssh Anc_U-T lmswitch coder` → `bin/lmswitch:47` dispatch → para os outros três services → `systemctl --user start llama-coder.service` → `wait_ready()` faz poll em `:1234/health` → confirma pronto.
+`anc_lin_coder` (alias) → `ssh Anc_U-T lmswitch coder` → `bin/lmswitch:47` dispatch → para os outros três services → `systemctl --user start llama-coder.service` → `wait_ready()` faz poll em `:1234/health` → confirma pronto.
 
 **Deploy de mudança em unit/script:**
 Editar `systemd/*.service` ou `bin/*` neste repo → `make install` → `scripts/install.sh` copia via `scp` para `~/.config/systemd/user/` e `~/.local/bin/` no Ancalagon → `systemctl --user daemon-reload` remoto → `make coder`/`make qwen36`/`make qwen38`/`make gemma4` para reiniciar com a nova config.

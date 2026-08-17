@@ -56,5 +56,5 @@ systemctl --user enable --now gpu-guard.service
 systemctl --user is-active gpu-guard.service && echo "  gpu-guard ativo"
 
 echo ""
-echo "Done. Teste com: lmswitch sleep (do Ancalagon) ou llsleep (do Mac)"
+echo "Done. Teste com: lmswitch sleep (do Ancalagon) ou anc_lin_sleep (do Mac)"
 echo "Acordar com: wakeonlan 10:7C:61:45:D8:38 (do Mac)"

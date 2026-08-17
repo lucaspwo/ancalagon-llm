@@ -26,12 +26,12 @@ Cross-machine over Tailscale: 96.4 tok/s gen on the coder preset, 255ms round-tr
 Glaurung (Mac)                    Ancalagon-Ubuntu
                                   (Tailscale / LAN)
 aliases:                          systemd --user:
-  llcoder  ──────ssh─────▶        llama-coder.service ──┐
-  llq36    ──────ssh─────▶        llama-qwen36.service ─┤
-  (make qwen38) ─────────▶        llama-qwen38.service ─┤
-  llgemma4 ──────ssh─────▶        llama-gemma4.service ─┼─ Conflicts=
-  lloff    ──────ssh─────▶        (lmstudio.service    ─┘  (only one up)
-  llstatus ──────ssh─────▶        + disabled)
+  anc_lin_coder  ────ssh───▶      llama-coder.service ──┐
+  anc_lin_qwen36 ────ssh───▶      llama-qwen36.service ─┤
+  anc_lin_qwen38 ────ssh───▶      llama-qwen38.service ─┤
+  anc_lin_gemma4 ────ssh───▶      llama-gemma4.service ─┼─ Conflicts=
+  anc_lin_off    ────ssh───▶      (lmstudio.service    ─┘  (only one up)
+  anc_lin_status ────ssh───▶      + disabled)
                                        │
                                        ▼
                                   :1234 (OpenAI-compatible API)
@@ -88,15 +88,15 @@ make status    # service states + health probe on :1234
 make logs      # tail the journal of the active preset
 ```
 
-Equivalent aliases from the Mac's `.zshrc` (`llcoder`, `llq36`, `llgemma4`, `lloff`, `llsleep`, `llstatus`, `lllogs`) wrap the same `ssh … lmswitch <subcommand>` calls — see [MANUTENCAO.md](MANUTENCAO.md) for the full list and the `srl-coder`/`srl-tq` Claude Code entry points.
+Equivalent aliases from the Mac's `.zshrc` (`anc_lin_coder`, `anc_lin_qwen36`, `anc_lin_qwen38`, `anc_lin_gemma4`, `anc_lin_off`, `anc_lin_sleep`, `anc_lin_status`, `anc_lin_logs`) wrap the same `ssh … lmswitch <subcommand>` calls — see [MANUTENCAO.md](MANUTENCAO.md) for the full list and the `srl-coder`/`srl-tq` Claude Code entry points.
 
 Typical flow:
 
 ```zsh
-llcoder && srl-coder   # code work, MoE, ~80 tok/s
-llq36 && srl-tq        # reasoning-heavy work, TQ3, ~37 tok/s, 100% GPU
-lloff                  # free the GPU, machine stays up
-llsleep                # suspend the whole box (wakes via Wake-on-LAN)
+anc_lin_coder && srl-coder    # code work, MoE, ~80 tok/s
+anc_lin_qwen38 && srl-coder   # reasoning-heavy work, IQ3_M, ~40 tok/s, 100% GPU
+anc_lin_off                   # free the GPU, machine stays up
+anc_lin_sleep                 # suspend the whole box (wakes via Wake-on-LAN)
 ```
 
 ### Dual-boot (Windows)

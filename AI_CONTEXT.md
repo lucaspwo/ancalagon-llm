@@ -22,11 +22,11 @@ Não inclui: compilação do `llama.cpp`, download de modelos, configuração de
 ```
 Glaurung (Mac)                        Ancalagon-Ubuntu
 aliases .zshrc                         systemd --user (Conflicts= entre si):
-  llcoder  ──ssh──▶                    llama-coder.service   (upstream)
-  llq36    ──ssh──▶                    llama-qwen36.service  (fork TQ3)
-  (make qwen38) ───▶                   llama-qwen38.service  (fork TQ3, sem alias)
-  llgemma4 ──ssh──▶                    llama-gemma4.service  (upstream)
-  lloff    ──ssh──▶                    lmstudio.service      (DISABLED)
+  anc_lin_coder  ──ssh──▶              llama-coder.service   (upstream)
+  anc_lin_qwen36 ──ssh──▶              llama-qwen36.service  (fork TQ3)
+  anc_lin_qwen38 ──ssh──▶              llama-qwen38.service  (fork TQ3)
+  anc_lin_gemma4 ──ssh──▶              llama-gemma4.service  (upstream)
+  anc_lin_off    ──ssh──▶              lmstudio.service      (DISABLED)
   srl-coder                                 │
   srl-tq                                    ▼
                                        :1234 (OpenAI-compat)
@@ -63,10 +63,10 @@ Quatro services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio 
 
 - Services rodando com `ctx=96K` no coder, `ctx=40K` no qwen36, `ctx=40K` no qwen38, `ctx=96K` no gemma4 (alternativa ao coder)
 - Documentação em 3 arquivos: `README.md` (arquitetura), `CLAUDE.md` (visão para futuras sessões Claude), `docs/delegation.md` (charter para delegação do cloud para Ancalagon)
-- Mac `.zshrc` tem aliases `llcoder`/`llq36`/`llgemma4`/`lloff`/`llsleep`/`llstatus`/`lllogs` (controle) e `srl-coder`/`srl-tq`/`srl` (entrada no Claude Code)
+- Mac `.zshrc` tem aliases `anc_lin_coder`/`anc_lin_qwen36`/`anc_lin_qwen38`/`anc_lin_gemma4`/`anc_lin_off`/`anc_lin_sleep`/`anc_lin_status`/`anc_lin_logs` (controle) e `srl-coder`/`srl-tq`/`srl` (entrada no Claude Code)
 - `lmstudio.service` stopped + disabled no Ancalagon (conflito de VRAM e porta com os llama services)
 - `/etc/sudoers.d/lucas-nopasswd` concede `NOPASSWD: ALL` ao usuário `lucas` — usado por `lmswitch sleep` e facilita manutenção via SSH. Uso pessoal, máquina não compartilhada.
-- Suspend/WoL validado ciclo completo em 2026-04-24: `llsleep` → S3 real → `wakeonlan` na LAN → resume (uptime preservado). Exigiu configurar `nvidia-suspend/resume/hibernate.service` (habilitar) + netplan `wakeonlan: true` na eno1.
+- Suspend/WoL validado ciclo completo em 2026-04-24: `anc_lin_sleep` → S3 real → `wakeonlan` na LAN → resume (uptime preservado). Exigiu configurar `nvidia-suspend/resume/hibernate.service` (habilitar) + netplan `wakeonlan: true` na eno1.
 
 ## Como testar uma mudança
 

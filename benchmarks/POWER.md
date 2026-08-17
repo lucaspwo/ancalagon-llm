@@ -44,7 +44,7 @@ Atualmente **sem bandeira tarifária** (adicional zero). Custo fixo mensal separ
 
 Observações:
 - Uso real é uma mistura de idle + bursts curtos de inference. Valor efetivo fica muito abaixo da linha "inferindo 100% do tempo".
-- **Manter coder carregado 24/7 em idle custa apenas +R$ 2,85/mês** sobre ter o Ancalagon ligado mas sem service (R$ 18,46 − R$ 15,62) — é essa diferença (não o total) que pesa na decisão de `lloff`.
+- **Manter coder carregado 24/7 em idle custa apenas +R$ 2,85/mês** sobre ter o Ancalagon ligado mas sem service (R$ 18,46 − R$ 15,62) — é essa diferença (não o total) que pesa na decisão de `anc_lin_off`.
 - Adicionar ~50-100W para CPU/placa/fontes para chegar ao consumo total do sistema.
 - Se bandeira subir (amarela +R$ 0,01885/kWh, vermelha 1 +R$ 0,04463/kWh, vermelha 2 +R$ 0,07877/kWh), multiplicar o consumo pelo adicional. Em bandeira vermelha 2 o coder inferindo 100% custaria R$ 0,008/h extra.
 
@@ -52,8 +52,8 @@ Observações:
 
 Regra prática, dada a diferença de apenas +3.6W entre modelo carregado e GPU dormente:
 
-- **Não vale a pena** `lloff` entre usos num mesmo dia de trabalho. Manter o modelo carregado custa apenas +R$ 0,004/h (diferença entre 26W e 22W dormente, tarifa regulada). Reload leva 20-60s — o trade em tempo humano é desfavorável.
-- **Vale a pena** `lloff` quando:
+- **Não vale a pena** `anc_lin_off` entre usos num mesmo dia de trabalho. Manter o modelo carregado custa apenas +R$ 0,004/h (diferença entre 26W e 22W dormente, tarifa regulada). Reload leva 20-60s — o trade em tempo humano é desfavorável.
+- **Vale a pena** `anc_lin_off` quando:
   - Sabe que vai ficar >2h sem usar
   - Quer liberar GPU para outro workload (jogo, fine-tuning, experimento)
   - Vai dormir ou sair da casa
