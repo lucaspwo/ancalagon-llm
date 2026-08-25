@@ -163,7 +163,12 @@ faltava quando o `gemma4` foi escolhido às cegas.
 | `coder` | **88,7** | **APROVADO** | +11 / −0 | Aditivo puro. Único que passou limpo. **Default certo.** |
 | `gemma4` | **80,2** | reprovado (3 tokens) | +53 / −33 | Doc **cresceu** (64→84 linhas). Manteve **todos** os 5 tokens críticos do incidente (`.45`, `.46`, `-Confirmar`, `PLAYBOOK.md`, `.mcp.json`). Perdeu `tests/win-run.bats` e "nunca versionado" |
 | `qwen36` | 39,8 | APROVADO | +3 / −10 | Nenhum token protegido perdido, mas **encurtou** o doc. O guard protege tokens, não tamanho — leia o diff |
-| `qwen38` | 40,2 | **INUTILIZÁVEL** | +0 / −63 | `content` **vazio**: gastou os 8192 tokens de `max_tokens` no canal `reasoning_content` (`finish_reason=length`). Zerou o arquivo |
+| `qwen38` | 40,2 | **APROVADO** (teto 16K) | +23 / −16 | Competente em modo aditivo, doc cresceu (64→71). Mas com o teto default de 8192 devolve `content` **vazio** e zera o arquivo: gasta tudo em `reasoning_content` (`finish_reason=length`). Precisa `ANC_MAX_TOKENS=16384` — usou 10154 tokens |
+
+**Amostra:** uma execução por preset (duas para o `coder`, ambas aprovadas: +8/−0 e
++12/−0). Suficiente para o achado qualitativo — o modo aditivo muda o
+comportamento, e o `qwen38` precisa de teto maior — **não** para ranquear os
+modelos entre si. Antes de tratar esta tabela como ranking, repita com n≥3.
 
 **A conclusão que importa, e é contraintuitiva:** com briefing em **modo aditivo**,
 o `gemma4` — o mesmo modelo que causou o incidente — preservou todos os cinco
@@ -172,8 +177,7 @@ Confirma a tese: o problema não era o modelo, era a tarefa entregue sem restri�
 e sem verificação. **Estreitar a tarefa até caber no modelo funciona.** Ainda
 assim, o `coder` é o único que passa limpo — continua sendo o default.
 
-**Nunca use `qwen36`/`qwen38` no `gen` para tarefa longa sem subir
-`ANC_MAX_TOKENS`.** Modelos com reasoning explícito consomem o orçamento pensando,
+**Nunca use `qwen36`/`qwen38` no `gen` para tarefa longa sem subir `ANC_MAX_TOKENS`** (16384 cabe no `-m 600` do curl a ~40 tok/s; o `qwen38` competente precisou de 10154 tokens). Modelos com reasoning explícito consomem o orçamento pensando,
 num canal que não é o `content`. O `gen` agora aborta nesse caso (antes retornava
 string vazia com exit 0 — quem aplicasse zerava o arquivo de destino).
 
