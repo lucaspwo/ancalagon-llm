@@ -144,6 +144,27 @@ Encurtar não é objetivo de nenhuma tarefa delegada sobre artefato existente. N
 
 **Por que a regra é uma lista fechada de tipos de token, e não "preserve o que é importante":** um modelo fraco segue a primeira e erra a segunda. Julgar o que é operacionalmente crítico é exatamente a competência que falta do outro lado.
 
+### Quanto o modo aditivo muda, medido
+
+Par controlado (25/08/2026): **mesmo modelo** (`gemma4`), **mesmo caminho**
+(`iter`, tools reais), **mesmo fixture** (o README real de antes do `824bd4f`).
+A única variável é o briefing.
+
+| briefing | diff | tokens protegidos perdidos | dos 5 críticos do incidente | output gerado |
+|---|---|---|---|---|
+| solto ("deixe o documento conciso") | +47 / −37 | **54** | perdeu 3 (`.45`, `-Confirmar`, `.mcp.json`) | 37.314 tok |
+| **modo aditivo** | +31 / −31 | **3** | **perdeu 0** | 9.321 tok |
+
+**Redução de 94% na perda, com o modelo mantido constante.** O briefing solto
+reproduziu o incidente original no fluxo real com tools; o modo aditivo preservou
+todos os cinco identificadores. Os 3 remanescentes foram um `.ps1` citado duas
+vezes e uma URL.
+
+É a evidência da tese: **o defeito estava no desenho da delegação, não no modelo.**
+A palavra "conciso" num briefing sobre doc operacional é instrução para destruir
+informação. Nos dois casos o `diff-guard` barrou antes do commit — o gate pega o
+que o briefing não evitou.
+
 ## Modelo certo para o trabalho
 
 - **`anc_lin_coder && srl-coder`** (Qwen3-Coder 30B MoE, 78 tok/s) — código em geral, testes, refactor
