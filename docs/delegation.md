@@ -118,17 +118,40 @@ Regra prática: **se o briefing ficou maior que 40K tokens, algo está errado**.
 
 ## Quando NÃO delegar
 
+O primeiro item é o mais importante porque é o único aplicável **sem interpretação**: basta perguntar "o arquivo já existe?".
+
+- **Reescrever ou reorganizar artefato existente** (documentação, config, script em produção) — a tarefa embute decidir o que pode sair, e isso exige saber o que é operacionalmente crítico. O Ancalagon não sabe. **Criar do zero é seguro; editar o que já existe não é.** Se for delegar mesmo assim: briefing em **modo aditivo** (seção abaixo) + verificação mecânica do diff antes do commit — nunca só revisão a olho.
 - Decisões que tocam múltiplos repos (requer memória cross-project)
 - Mudanças na infraestrutura (systemd, Tailscale, scripts de ambiente — Ancalagon pode, mas sem tools de verificação fica arriscado)
 - Tarefas que exigem PR/Git (Ancalagon não tem)
 - Qualquer coisa em que a qualidade do raciocínio importa mais que a quantidade de código gerado
+
+## Modo aditivo
+
+Quando a tarefa toca arquivo existente, o briefing deve permitir apenas **ADIÇÃO** e **REORGANIZAÇÃO**, nunca remoção.
+
+Elementos que **não podem desaparecer**, nem "reformulados":
+
+- endereços IP e octetos soltos (`.45`, `192.168.0.46`)
+- nomes de arquivo e caminhos (`PLAYBOOK.md`, `docs/ACESSO.md`, `.mcp.json`)
+- flags e parâmetros (`-Confirmar`, `--host`, `--cofre`)
+- links markdown e ponteiros para outros documentos
+- qualquer frase que descreva comportamento **destrutivo, irreversível ou de proteção de credencial** de um script (ex.: "listar-only por padrão", "só remove com `-Confirmar`", "gitignored, nunca versionado")
+
+Remoção que o modelo julgue necessária vira **proposta no relatório**, nunca ação. O briefing precisa pedir esse campo explicitamente — um contrato de retorno que só pergunta "o que você preservou?" nunca revela o que foi perdido.
+
+Encurtar não é objetivo de nenhuma tarefa delegada sobre artefato existente. Na dúvida entre cortar e manter, **manter**.
+
+**Por que a regra é uma lista fechada de tipos de token, e não "preserve o que é importante":** um modelo fraco segue a primeira e erra a segunda. Julgar o que é operacionalmente crítico é exatamente a competência que falta do outro lado.
 
 ## Modelo certo para o trabalho
 
 - **`anc_lin_coder && srl-coder`** (Qwen3-Coder 30B MoE, 78 tok/s) — código em geral, testes, refactor
 - **`anc_lin_qwen36 && srl-tq`** (Qwen3.6-27B TQ3, 40 tok/s + reasoning) — tarefas que pedem análise mais cuidadosa, debugging com raciocínio explícito
 - **`anc_lin_qwen38 && srl-coder`** (Qwen3.8-27B IQ3_M, 40 tok/s + reasoning) — mesmo perfil do `qwen36`, modelo mais novo (ago/2026)
+- **`anc_lin_gemma4`** (Gemma 4 26B-A4B-it MoE, Q4_K_M upstream, `--n-cpu-moe 8`, KV q4/q4, ctx 96K, ~40 tok/s — threshold de regressão `<40 tok/s` em `AI_CONTEXT.md` § "Como testar uma mudança") — **perfil de competência NÃO CARACTERIZADO para delegação.** O que se sabe, de fato: é o preset com o **menor orçamento de computação por token** dos quatro (`A4B` ≈ 4B parâmetros ativos), é **generalista instruct** (não especializado em código, ao contrário do `coder`) e **não tem cadeia de raciocínio explícita** (não é do fork TQ3, ao contrário de `qwen36`/`qwen38`). Não há tarefa para a qual ele seja hoje a escolha recomendada. O único uso registrado em tarefa real de manutenção produziu o incidente `824bd4f` no `intellissis-infra` (reescrita de documentação que encurtou e perdeu IPs, ponteiros, flags e uma frase de segurança). **Antes de usar em trabalho que vale, caracterize o perfil** — este texto existe para que ninguém mais o escolha às cegas, que foi a causa raiz do incidente.
 - **`anc_lin_coder` é o default**; escolher `qwen36`/`qwen38` quando o problema pedir reflexão acima de throughput
+- **`--model` no `anc-delegate` é preferência, não garantia.** Se já houver um `llama-*.service` ativo, `ensure_model()` (`anc-delegate:46`) **não troca** — loga `Service ativo: <s> (não troco)` e usa o que está no ar. Para garantir um modelo específico, pare o ativo primeiro (`anc_lin_off`) ou confirme com `anc-delegate health` qual subiu de fato. Não presuma pelo que você pediu na linha de comando.
 
 ## Quando o Ancalagon está indisponível
 
