@@ -149,8 +149,34 @@ Encurtar não é objetivo de nenhuma tarefa delegada sobre artefato existente. N
 - **`anc_lin_coder && srl-coder`** (Qwen3-Coder 30B MoE, 78 tok/s) — código em geral, testes, refactor
 - **`anc_lin_qwen36 && srl-tq`** (Qwen3.6-27B TQ3, 40 tok/s + reasoning) — tarefas que pedem análise mais cuidadosa, debugging com raciocínio explícito
 - **`anc_lin_qwen38 && srl-coder`** (Qwen3.8-27B IQ3_M, 40 tok/s + reasoning) — mesmo perfil do `qwen36`, modelo mais novo (ago/2026)
-- **`anc_lin_gemma4`** (Gemma 4 26B-A4B-it MoE, Q4_K_M upstream, `--n-cpu-moe 8`, KV q4/q4, ctx 96K, ~40 tok/s — threshold de regressão `<40 tok/s` em `AI_CONTEXT.md` § "Como testar uma mudança") — **perfil de competência NÃO CARACTERIZADO para delegação.** O que se sabe, de fato: é o preset com o **menor orçamento de computação por token** dos quatro (`A4B` ≈ 4B parâmetros ativos), é **generalista instruct** (não especializado em código, ao contrário do `coder`) e **não tem cadeia de raciocínio explícita** (não é do fork TQ3, ao contrário de `qwen36`/`qwen38`). Não há tarefa para a qual ele seja hoje a escolha recomendada. O único uso registrado em tarefa real de manutenção produziu o incidente `824bd4f` no `intellissis-infra` (reescrita de documentação que encurtou e perdeu IPs, ponteiros, flags e uma frase de segurança). **Antes de usar em trabalho que vale, caracterize o perfil** — este texto existe para que ninguém mais o escolha às cegas, que foi a causa raiz do incidente.
+- **`anc_lin_gemma4`** (Gemma 4 26B-A4B-it MoE, Q4_K_M upstream, `--n-cpu-moe 8`, KV q4/q4, ctx 96K) — **80 tok/s medidos**, quase empatado com o `coder` e o **dobro** do que o threshold `<40 tok/s` do `AI_CONTEXT.md` sugere (o threshold é conservador, não uma estimativa). Generalista instruct, **sem** cadeia de raciocínio explícita, menor orçamento de computação por token dos quatro (`A4B` ≈ 4B ativos). Foi o modelo do incidente `824bd4f` — mas ver a tabela de competência abaixo antes de concluir o que isso significa.
 - **`anc_lin_coder` é o default**; escolher `qwen36`/`qwen38` quando o problema pedir reflexão acima de throughput
+### Perfis medidos — throughput e competência (25/08/2026)
+
+Throughput: prompt fixo de regressão, 400 tokens, `timings` do `llama-server`.
+Competência: o **mesmo** briefing em modo aditivo sobre o README real de antes do
+`824bd4f`, com o `diff-guard` como juiz objetivo. Reprodutível — é o teste que
+faltava quando o `gemma4` foi escolhido às cegas.
+
+| preset | tok/s | modo aditivo | diff | comportamento observado |
+|---|---|---|---|---|
+| `coder` | **88,7** | **APROVADO** | +11 / −0 | Aditivo puro. Único que passou limpo. **Default certo.** |
+| `gemma4` | **80,2** | reprovado (3 tokens) | +53 / −33 | Doc **cresceu** (64→84 linhas). Manteve **todos** os 5 tokens críticos do incidente (`.45`, `.46`, `-Confirmar`, `PLAYBOOK.md`, `.mcp.json`). Perdeu `tests/win-run.bats` e "nunca versionado" |
+| `qwen36` | 39,8 | APROVADO | +3 / −10 | Nenhum token protegido perdido, mas **encurtou** o doc. O guard protege tokens, não tamanho — leia o diff |
+| `qwen38` | 40,2 | **INUTILIZÁVEL** | +0 / −63 | `content` **vazio**: gastou os 8192 tokens de `max_tokens` no canal `reasoning_content` (`finish_reason=length`). Zerou o arquivo |
+
+**A conclusão que importa, e é contraintuitiva:** com briefing em **modo aditivo**,
+o `gemma4` — o mesmo modelo que causou o incidente — preservou todos os cinco
+identificadores que havia destruído, e o documento **cresceu** em vez de encurtar.
+Confirma a tese: o problema não era o modelo, era a tarefa entregue sem restrição
+e sem verificação. **Estreitar a tarefa até caber no modelo funciona.** Ainda
+assim, o `coder` é o único que passa limpo — continua sendo o default.
+
+**Nunca use `qwen36`/`qwen38` no `gen` para tarefa longa sem subir
+`ANC_MAX_TOKENS`.** Modelos com reasoning explícito consomem o orçamento pensando,
+num canal que não é o `content`. O `gen` agora aborta nesse caso (antes retornava
+string vazia com exit 0 — quem aplicasse zerava o arquivo de destino).
+
 - **`--model` no `anc-delegate` é preferência, não garantia.** Se já houver um `llama-*.service` ativo, `ensure_model()` (`anc-delegate:46`) **não troca** — loga `Service ativo: <s> (não troco)` e usa o que está no ar. Para garantir um modelo específico, pare o ativo primeiro (`anc_lin_off`) ou confirme com `anc-delegate health` qual subiu de fato. Não presuma pelo que você pediu na linha de comando.
 
 ## Quando o Ancalagon está indisponível

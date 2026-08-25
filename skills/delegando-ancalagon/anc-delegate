@@ -11,6 +11,8 @@ WIN_HOST="${ANC_WIN_HOST:-ancalagon}" # nó Tailscale do Windows (MagicDNS)
 WAKE_MAC="${ANC_WAKE_MAC:-10:7C:61:45:D8:38}"
 DEFAULT_MODEL="coder"
 BOOT_TIMEOUT=120                       # s para SSH-Linux voltar após WoL/reboot
+MAX_TOKENS="${ANC_MAX_TOKENS:-8192}"   # teto de geração do `gen`; modelos com
+                                       # reasoning explícito estouram fácil
 
 usage() {
   cat <<EOF
@@ -123,9 +125,9 @@ gen() {
   local model_id
   model_id="$(curl -sf -m5 "http://$HOST:$PORT/v1/models" | jq -r '.data[0].id // "local"')"
   local payload
-  payload="$(jq -n --arg m "$model_id" --arg c "$prompt" '{
+  payload="$(jq -n --arg m "$model_id" --arg c "$prompt" --argjson mt "$MAX_TOKENS" '{
     model:$m, messages:[{role:"user",content:$c}],
-    temperature:0.2, max_tokens:8192, stream:false
+    temperature:0.2, max_tokens:$mt, stream:false
   }')"
   local resp
   resp="$(curl -sf -m 600 "http://$HOST:$PORT/v1/chat/completions" \
@@ -134,10 +136,35 @@ gen() {
 
   # Instrumentação: economia BRUTA do lado Ancalagon. O helper NÃO vê o custo de
   # cloud de escrever o briefing nem de revisar/reaplicar.
-  local comp prompt_t content
+  local comp prompt_t content finish reason_len
   comp="$(printf '%s' "$resp" | jq -r '.usage.completion_tokens // empty')"
   prompt_t="$(printf '%s' "$resp" | jq -r '.usage.prompt_tokens // empty')"
   content="$(printf '%s' "$resp" | jq -r '.choices[0].message.content')"
+  finish="$(printf '%s' "$resp" | jq -r '.choices[0].finish_reason // empty')"
+  reason_len="$(printf '%s' "$resp" | jq -r '.choices[0].message.reasoning_content // "" | length')"
+
+  # Guarda de degradação silenciosa. Modelos com reasoning explícito (qwen36,
+  # qwen38) gastam o orçamento no canal `reasoning_content`, que NÃO é o
+  # `content`. Medido em 25/08/2026 com o qwen38: finish_reason=length,
+  # completion_tokens=8192, len(content)=0, len(reasoning_content)=28698.
+  # Sem esta guarda o `gen` retornava string vazia com exit 0 — e quem aplicasse
+  # a saída zerava o arquivo de destino.
+  if [[ "$finish" == "length" ]]; then
+    log "ERRO: resposta TRUNCADA (finish_reason=length) em ${comp:-?} tokens = max_tokens ($MAX_TOKENS)."
+    (( reason_len > 0 )) && log "      O modelo gastou ${reason_len} chars em reasoning_content (canal separado do content)."
+    log "      Ações: (a) subir o teto — ANC_MAX_TOKENS=16384 anc-delegate gen ...;"
+    log "             (b) usar um modelo sem reasoning (--model coder / gemma4);"
+    log "             (c) recortar a tarefa em pedaços menores."
+    log "      NÃO aplique esta saída: ela está incompleta."
+    return 1
+  fi
+
+  if [[ -z "${content//[[:space:]]/}" ]]; then
+    log "ERRO: o modelo devolveu content VAZIO (finish_reason=${finish:-?}, ${comp:-?} tokens gerados)."
+    (( reason_len > 0 )) && log "      Havia ${reason_len} chars em reasoning_content — o modelo pensou e não respondeu."
+    log "      NÃO aplique esta saída. Reformule o briefing ou troque de modelo."
+    return 1
+  fi
   if [[ -n "$comp" && -n "$prompt_t" ]]; then
     log "[anc] gen: gerados ${comp} tok (poupados do cloud) · briefing ${prompt_t} tok · economia BRUTA"
   else

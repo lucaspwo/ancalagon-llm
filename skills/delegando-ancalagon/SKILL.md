@@ -113,11 +113,16 @@ trabalho). Use o `health` para confirmar **qual modelo está de fato no ar**.
 - Modelo: default `coder`. Use `--model qwen36` ou `--model qwen38` para tarefas que
   pedem reasoning explícito (mais lentos, ~40 tok/s, mas com cadeia de raciocínio).
   Entre os dois, `qwen38` é o modelo mais novo (ago/2026) com throughput equivalente.
-- `--model gemma4` existe no helper, mas **seu perfil de competência não está
-  caracterizado** — é o preset com menor computação por token (`A4B` ≈ 4B ativos),
-  generalista (não de código) e sem raciocínio explícito. Não é hoje a escolha
-  recomendada para nada; o único uso registrado em tarefa real produziu o `824bd4f`.
-  Ver "Modelo certo para o trabalho" em delegation.md antes de escolher.
+- **`qwen36`/`qwen38` no `gen` de tarefa longa: suba `ANC_MAX_TOKENS`.** Modelos com
+  reasoning explícito gastam o orçamento no canal `reasoning_content`, que não é o
+  `content`. Medido: o `qwen38` consumiu os 8192 tokens pensando e devolveu
+  `content` vazio. O `gen` agora **aborta** (`finish_reason=length` ou content
+  vazio) em vez de devolver string vazia com exit 0 — mas o teto continua seu.
+- `--model gemma4`: **80 tok/s medidos** (quase igual ao `coder`, dobro do que o
+  threshold sugeria). Foi o modelo do `824bd4f`, mas com briefing em modo aditivo
+  preservou todos os 5 tokens críticos e o doc cresceu. O `coder` ainda é o único
+  que passa limpo no teste de modo aditivo — mantenha-o como default. Tabela de
+  perfis medidos em "Perfis medidos" em delegation.md.
 - **`--model` é preferência, não garantia.** Se já houver `llama-*.service` ativo,
   o helper **não troca** (`ensure_model()`, `anc-delegate:46`, loga `Service ativo:
   <s> (não troco)`). Confirme com `anc-delegate health` qual modelo está realmente
