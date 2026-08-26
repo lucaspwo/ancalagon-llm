@@ -13,6 +13,8 @@
 #   3. Aplica netplan (netplan apply) e valida ethtool.
 #   4. Instala /etc/default/console-setup com TerminusBold 16x32 / Lat15
 #      (console TTY legível em 1080p+; ver docs/console-setup.md).
+#   5. Instala usb-port-guard (system service): desabilita a USB port11 morta
+#      no boot e a cada resume (erro -71 em loop; ver docs/usb-port11.md).
 #
 # Pré-requisito não gerenciado aqui:
 #   - /etc/sudoers.d/lucas-nopasswd com "lucas ALL=(ALL) NOPASSWD: ALL"
@@ -54,6 +56,15 @@ install -m 0644 "$REPO_DIR/systemd/gpu-guard.service" "$HOME/.config/systemd/use
 systemctl --user daemon-reload
 systemctl --user enable --now gpu-guard.service
 systemctl --user is-active gpu-guard.service && echo "  gpu-guard ativo"
+
+echo ""
+echo "→ Instalando usb-port-guard (desabilita a USB port11 morta)..."
+sudo install -m 0755 "$REPO_DIR/bin/usb-port-guard" /usr/local/bin/usb-port-guard
+sudo install -m 0644 "$REPO_DIR/systemd/usb-port-guard.service" \
+  /etc/systemd/system/usb-port-guard.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now usb-port-guard.service
+sudo systemctl start usb-port-guard.service
 
 echo ""
 echo "Done. Teste com: lmswitch sleep (do Ancalagon) ou anc_lin_sleep (do Mac)"

@@ -7,8 +7,8 @@ install:
 
 install-system:
 	@ssh $(REMOTE) 'mkdir -p /tmp/ancalagon-system/systemd /tmp/ancalagon-system/scripts /tmp/ancalagon-system/bin'
-	@scp systemd/99-wol.yaml systemd/console-setup systemd/gpu-guard.service $(REMOTE):/tmp/ancalagon-system/systemd/
-	@scp bin/gpu-guard $(REMOTE):/tmp/ancalagon-system/bin/
+	@scp systemd/99-wol.yaml systemd/console-setup systemd/gpu-guard.service systemd/usb-port-guard.service $(REMOTE):/tmp/ancalagon-system/systemd/
+	@scp bin/gpu-guard bin/usb-port-guard $(REMOTE):/tmp/ancalagon-system/bin/
 	@scp scripts/setup-system.sh $(REMOTE):/tmp/ancalagon-system/scripts/
 	@ssh $(REMOTE) 'bash /tmp/ancalagon-system/scripts/setup-system.sh'
 

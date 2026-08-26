@@ -1,0 +1,54 @@
+#!/bin/bash
+# usb-port-guard — desabilita portas USB mortas que entopem o log do kernel.
+#
+# Caso tratado: a port11 do controlador AMD 600 Series (0000:0f:00.0) tenta
+# enumerar um dispositivo low-speed que nunca responde. A cada boot e a cada
+# resume o kernel repete:
+#
+#   usb usb3-port11: Cannot enable. Maybe the USB cable is bad?
+#   usb 3-11: device descriptor read/64, error -71
+#   usb usb3-port11: unable to enumerate USB device
+#
+# Nenhum dispositivo funcional depende dessa porta (verificado: desabilitar não
+# remove nada do barramento). Ver docs/usb-port11.md para o diagnóstico completo
+# e o procedimento de identificação física do culpado.
+#
+# Deliberadamente NÃO é uma regra udev: portas USB expõem SUBSYSTEM=="" e
+# DRIVER=="" (conferido com `udevadm info -a`), então nenhuma regra casaria.
+set -euo pipefail
+
+PCI_ID="${USB_GUARD_PCI:-0000:0f:00.0}"
+PORT="${USB_GUARD_PORT:-11}"
+
+log() { printf '%s usb-port-guard: %s\n' "$(date -Is)" "$*"; }
+
+# O número do bus (usb3) pode mudar entre boots conforme a ordem de enumeração
+# dos controladores — por isso resolvemos a partir do endereço PCI, que é fixo.
+bus_dir=""
+for candidate in /sys/bus/pci/devices/"$PCI_ID"/usb*; do
+  [ -d "$candidate" ] || continue
+  bus_dir="$candidate"
+  break
+done
+
+if [ -z "$bus_dir" ]; then
+  log "controlador $PCI_ID não encontrado — nada a fazer"
+  exit 0
+fi
+
+bus=$(basename "$bus_dir")            # ex.: usb3
+num=${bus#usb}                        # ex.: 3
+target="$bus_dir/$num-0:1.0/$bus-port$PORT/disable"
+
+if [ ! -w "$target" ]; then
+  log "porta $bus-port$PORT não expõe 'disable' gravável ($target) — nada a fazer"
+  exit 0
+fi
+
+if [ "$(cat "$target")" = "1" ]; then
+  log "$bus-port$PORT já desabilitada"
+  exit 0
+fi
+
+echo 1 > "$target"
+log "$bus-port$PORT desabilitada (controlador $PCI_ID)"

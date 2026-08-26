@@ -1,0 +1,14 @@
+[Unit]
+Description=Desabilita a USB port11 morta (erro -71 em loop desde 18/ago/2026)
+# Roda no boot e também na saída de cada suspend: o resume loga
+# "root hub lost power or was reset" e re-enumera o barramento inteiro,
+# o que ressuscita a porta e recomeça as rajadas de erro.
+After=multi-user.target suspend.target hibernate.target hybrid-sleep.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/usb-port-guard
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target suspend.target hibernate.target hybrid-sleep.target

@@ -11,7 +11,7 @@ make off                  # para o preset ativo
 make sleep                # para + suspende a máquina (wake via WoL: make wake)
 make logs                 # journalctl -f do service ativo
 make install               # deploy de units + wrappers (scp + daemon-reload) no Ancalagon
-make install-system        # pré-requisitos de sistema (WoL, nvidia-suspend, console-font) — 1x por máquina
+make install-system        # pré-requisitos de sistema (WoL, nvidia-suspend, console-font, usb-port-guard) — 1x por máquina
 ```
 
 Não há build nem suíte de testes automatizada neste repo (ver [MANUTENCAO.md](MANUTENCAO.md) § Build/Test/Lint/Deploy). Validação de mudança é `make status` + benchmark manual contra os thresholds de regressão em [`AI_CONTEXT.md`](AI_CONTEXT.md) § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s).
@@ -31,6 +31,7 @@ Não há build nem suíte de testes automatizada neste repo (ver [MANUTENCAO.md]
 - Bootstrap enxuto de 1 página para sessão nova (PT-BR, convenção Intellissis) → [AI_CONTEXT.md](AI_CONTEXT.md)
 - Charter de delegação cloud↔Ancalagon (quando/como usar `anc-delegate`) → [docs/delegation.md](docs/delegation.md)
 - Dados empíricos por trás das flags de tuning atuais → [benchmarks/TUNING.md](benchmarks/TUNING.md)
+- Diagnóstico da USB port11 morta (erro `-71` em loop) e como caçar o culpado → [docs/usb-port11.md](docs/usb-port11.md)
 
 ## Memórias relacionadas
 

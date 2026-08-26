@@ -12,14 +12,16 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 | `systemd/llama-qwen38.service` | Unit — Qwen3.8-27B-IQ3_M (fork `turbo-tan/llama.cpp-tq3`), KV q8/q8, ctx 40960 |
 | `systemd/llama-gemma4.service` | Unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 8`, KV q4/q4, ctx 98304 |
 | `systemd/gpu-guard.service` | Unit — thermal watchdog, `enabled` (persistent, unlike the three above) |
+| `systemd/usb-port-guard.service` | System unit — disables the dead USB port11 on boot and on every resume (see `docs/usb-port11.md`) |
 | `systemd/99-wol.yaml` | netplan override — arms Wake-on-LAN on `eno1` |
 | `systemd/console-setup` | `/etc/default/console-setup` — TTY font config |
 | `bin/lmswitch` | Preset switcher (runs on Ancalagon): `coder\|qwen36\|qwen38\|gemma4\|off\|sleep\|status\|logs` |
 | `bin/gpu-guard` | Thermal watchdog daemon (nvidia-smi polling loop) |
+| `bin/usb-port-guard` | Disables a dead USB port by PCI address (bus number is not stable across boots) |
 | `bin/videoswitch` | DPMS toggle for the physical console (`off\|on\|status`) |
 | `bin/bootwin` | One-shot UEFI reboot into Windows (`--dry-run` supported) |
 | `scripts/install.sh` | Deploys units + `bin/` wrappers to Ancalagon via `scp` + `daemon-reload` |
-| `scripts/setup-system.sh` | One-time system prerequisites (WoL, nvidia-suspend/resume/hibernate, console font, gpu-guard enable) |
+| `scripts/setup-system.sh` | One-time system prerequisites (WoL, nvidia-suspend/resume/hibernate, console font, gpu-guard enable, usb-port-guard) |
 | `scripts/build-llama.sh` | Reference build script for llama.cpp (manual, not wired to `make`) |
 | `clients/glaurung-llm/gla` | Mac-side backend switcher (llama.cpp Metal / MLX) + opencode launcher |
 | `clients/glaurung-llm/TUNING.md` | Mac-side tuning data (untracked at last audit — see coverage note) |

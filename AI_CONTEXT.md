@@ -47,6 +47,8 @@ Quatro services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio 
 | `bin/lmswitch` | wrapper com subcomandos `coder\|qwen36\|qwen38\|gemma4\|off\|sleep\|status\|logs` | `~/.local/bin/` no Ancalagon |
 | `bin/gpu-guard` | watchdog térmico (nvidia-smi, escalonado WARN/CRIT) | `~/.local/bin/` + user unit `enabled` |
 | `systemd/gpu-guard.service` | user unit do watchdog, persistente (sobe no boot) | `~/.config/systemd/user/` no Ancalagon |
+| `bin/usb-port-guard` | desabilita a USB port11 morta (erro -71 em loop) | `/usr/local/bin/` no Ancalagon |
+| `systemd/usb-port-guard.service` | system unit do guard — dispara no boot e em cada resume | `/etc/systemd/system/` no Ancalagon |
 | `skills/delegando-ancalagon/` | skill global + `anc-delegate` (delegação headless do cloud) | symlink em `~/.claude/skills/` no Mac |
 | `scripts/install.sh` | deploy idempotente via scp + daemon-reload | — (roda do Mac) |
 | `Makefile` | targets `install`/`install-skill`/`coder`/`qwen36`/`qwen38`/`gemma4`/`off`/`sleep`/`wake`/`status`/`logs` | — |
