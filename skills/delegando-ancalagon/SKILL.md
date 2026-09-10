@@ -86,6 +86,9 @@ escrever o briefing nem de revisar. Some-os ao decidir se valeu.
    exato — não retente em loop (regra de delegation.md).
 4. **Se a tarefa tocou arquivo existente:** rode o `diff-guard` antes de qualquer
    commit (ver Guard-rails). Revisão a olho não é verificação.
+5. **Se a tarefa mexeu em MÁQUINA** (subir serviço, deployar, tocar host/LXC/Pi) —
+   e não só em arquivo — o relatório do modelo **não** fecha a tarefa: feche você,
+   do Mac, com os comandos. Ver "Relato de estado não é estado" nos Guard-rails.
 
 Outros subcomandos do helper: `anc-delegate health` (JSON com service ativo, saúde
 da `:1234`, temperatura e throttle da GPU — não acorda a máquina) e
@@ -108,6 +111,38 @@ trabalho). Use o `health` para confirmar **qual modelo está de fato no ar**.
   registrando o que foi liberado. **Nunca contorne o guard editando/desativando
   ele.** Quem verifica não pode ser quem errou: o guard roda no Mac, no Claude
   Code, nunca no modelo local.
+- **Relato de estado NÃO é estado. Verifique do Mac, sempre.** Medido em
+  **10/09/2026**: o modelo relatou **"tudo de pé"** com o contêiner em `exited`. E
+  **não foi falta de contexto** — era o `coder`, o default, com 98k de janela.
+  É o mesmo princípio do `diff-guard` acima, aplicado ao **runtime**: quem verifica
+  não pode ser quem errou. ⚠️ O sintoma é o pior possível — o relatório *parece*
+  sucesso, e nada no texto dele denuncia a diferença.
+
+  ⚠️ **E o dano não fica no serviço.** Quem declara "de pé" sem rodar `docker ps`
+  também declara a task concluída sem rodar `git status`. Na mesma delegação
+  sobraram, sem nada alarmar: o **rascunho** versionado no repo com a versão BOA
+  só dentro da máquina, e o **clone espelho travado** — arquivo untracked copiado
+  à mão para dentro dele bloqueia o `pull --ff-only`, o que congela **todos** os
+  verbos do painel, não só os do serviço novo.
+
+  **Portão de saída — rode do Mac antes de dar QUALQUER delegação por concluída.**
+  Ele não exige que o modelo tenha entendido a tarefa; é sobre o estado, não sobre
+  o relato:
+
+  ```bash
+  git status --porcelain   # VAZIO. Qualquer '??' = trabalho fora do versionamento
+  git log --oneline -1     # tem de bater com o do clone/deploy de destino
+  ```
+
+  No homelab, o destino é o clone espelho do host, e o serviço tem estado próprio:
+
+  ```bash
+  ssh root@100.91.10.29 'zsh -ilc "cd /opt/homelab && git log --oneline -1"'
+  ssh root@100.91.10.29 'pct exec 110 -- docker ps -a --format "{{.Names}}\t{{.State}}"'
+  ```
+
+  📌 Estas linhas pegam o que **nenhuma leitura do relatório pega** — e foram
+  exatamente as três coisas que ficaram para trás na delegação de 08/09.
 - Briefing > 40K tokens = recorte ruim. Pare e re-planeje (o `gen` também aborta).
 - **Nunca desligue o service depois** — deixe para o Lucas via `anc_lin_off`/`make off`.
 - Modelo: default `coder`. Use `--model qwen36` ou `--model qwen38` para tarefas que
