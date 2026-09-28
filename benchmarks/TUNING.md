@@ -497,3 +497,62 @@ Modelo mais novo, throughput equivalente, e ainda sobrou VRAM.
   de código na `:1234`.
 - Requantizar para TQ3_4S no fork é viável a partir do **Q8_0** (29 GB); o **bf16
   (54,66 GB) não cabe** nos 37 GB livres de disco.
+
+## 15. Adição do preset Colibri — Qwen3.6-35B-A3B (2026-09-27)
+
+Quinto preset, e o primeiro que **não é `llama.cpp`**: o engine [Colibrì](https://github.com/JustVugg/colibri)
+(C puro, streaming de experts MoE via RAM/VRAM/disco). Modelo `Qwen3.6-35B-A3B` (MoE, 3B ativos,
+arquitetura "Gated Attention + Gated DeltaNet" — **diferente** da do `Qwen3.6-27B-TQ3_4S` denso já em
+produção; não é redundante). Container pré-convertido `Kreuzzelg/qwen36-35b-a3b-colibri-i4-gs64`
+(int4-gs64, ~22 GB), baixado para `/mnt/black/colibri/qwen36_i4_gs64` (NVMe de jogos — o disco de
+sistema tinha só 24 GB livres e o NV3 que sobrava morreu, ver memória `project-kingston-nv3-falha`).
+
+### Descoberta: o tier CUDA não ativa por padrão
+
+`coli serve` sozinho roda **100% CPU** (~0,6 tok/s) mesmo com o binário compilado `CUDA=1`. O log
+denuncia: `[qtier] cap=8 != n_experts=256 -> tier disabled (needs full RAM residency)`. O tier CUDA
+promove experts de RAM pra VRAM, mas só ativa quando `--cap` (slots de cache por camada) **igual**
+a `n_experts` (256 aqui) — ou seja, com residência total em RAM primeiro. `--auto-tier --cap 256
+--gpu 0` resolve; o log de sucesso mostra `[gpu] MoE experts -> CUDA VRAM tier`.
+
+### Descoberta: bind em 0.0.0.0 exige opt-in explícito de segurança
+
+`refusing to bind 0.0.0.0 beyond localhost without COLI_API_KEY set (set
+COLI_ALLOW_INSECURE_BIND=1 to override)` — guard upstream do Colibrì, ausente no `llama-server`.
+Decisão consciente (Lucas, 2026-09-27): `COLI_ALLOW_INSECURE_BIND=1`, mesma paridade de ameaça dos
+`llama-*.service` (rede confiável = Tailscale/LAN, API sem autenticação nos cinco presets).
+
+### Medição (prompt canônico, 3 runs, cold-start descartado)
+
+| Run | tempo total | completion_tokens | tok/s |
+|---|---|---|---|
+| 1 (cold-start, descartado) | 15,30 s | 400 | — |
+| 2 | 14,58 s | 400 | 27,43 |
+| 3 | 14,51 s | 398 | 27,44 |
+
+**Baseline: ~27,4 tok/s**, estável entre runs (Δ 0,01 pp). GPU sob carga: **36-39% util, 85-145 W,
+50 °C**, ~14,15 GiB VRAM (7142 de 10240 experts residentes, mais o trunk — lm_head, projeções
+DeltaNet — promovido pelo `--auto-tier`). Threshold de regressão adotado: **19 tok/s** (70% do
+baseline, mesmo critério do `gemma4` em §7).
+
+### Comparação com os presets llama.cpp existentes
+
+| Preset | Modelo | tok/s | VRAM | Nota |
+|---|---|---|---|---|
+| qwen36 (TQ3) | Qwen3.6-27B denso | 39,7 | ~15,0 GiB | 100% residente, sem streaming |
+| **colibri** | **Qwen3.6-35B-A3B MoE** | **27,4** | **~14,15 GiB** | **70% dos experts em VRAM, resto RAM** |
+
+Mais lento que o `qwen36` (modelo maior, MoE com parte dos experts fora da VRAM), mas é um modelo e
+uma técnica de inferência **diferentes** — não compete pelo mesmo caso de uso, é uma alternativa a
+explorar (ver `docs/superpowers` se um plano formal for aberto depois).
+
+### Config adotada
+
+```
+COLI_CUDA=1 COLI_GPUS=0 CUDA_EXPERT_GB=auto OMP_NUM_THREADS=6 OMP_WAIT_POLICY=ACTIVE
+OMP_PROC_BIND=close COLI_ALLOW_INSECURE_BIND=1
+coli serve --model /mnt/black/colibri/qwen36_i4_gs64 --host 0.0.0.0 --port 1234 \
+  --auto-tier --cap 256 --gpu 0
+```
+
+**Fonte de verdade é o `ExecStart=`/`Environment=` de [`systemd/colibri-qwen36.service`](../systemd/colibri-qwen36.service)**, não este texto.

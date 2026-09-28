@@ -1,7 +1,7 @@
 #!/bin/bash
 # gpu-guard — watchdog térmico para a RTX 4070 Ti SUPER no Ancalagon.
 # Polling de nvidia-smi; escalonado: warning loga, critical sustentado corta o
-# service llama ativo. Proxy temp+throttle (sem sensor de conector 12VHPWR).
+# preset ativo (llama.cpp ou Colibri). Proxy temp+throttle (sem sensor de conector 12VHPWR).
 set -euo pipefail
 
 INTERVAL="${GPU_GUARD_INTERVAL:-5}"        # s entre leituras
@@ -19,8 +19,8 @@ log() { printf '%s gpu-guard: %s\n' "$(date -Is)" "$*"; }
 
 crit_since=0
 
-active_llama() {
-  for s in llama-coder llama-qwen36 llama-gemma4; do
+active_service() {
+  for s in llama-coder llama-qwen36 llama-qwen38 llama-gemma4 colibri-qwen36; do
     systemctl --user is-active --quiet "$s.service" && { echo "$s"; return; }
   done
 }
@@ -37,7 +37,7 @@ while true; do
     held=$(( now - crit_since ))
     printf 'CRITICAL temp=%s°C held=%ss throttle=%s\n' "$temp" "$held" "$throttle" > "$STATE"
     if (( held >= HOLD )); then
-      svc="$(active_llama || true)"
+      svc="$(active_service || true)"
       log "CRITICAL sustentado ${held}s a ${temp}°C — parando ${svc:-nenhum}"
       [[ -n "$svc" ]] && systemctl --user stop "$svc.service"
       crit_since=0

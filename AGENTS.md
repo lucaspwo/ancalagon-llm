@@ -11,11 +11,12 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 | `systemd/llama-qwen36.service` | Unit — Qwen3.6-27B-TQ3_4S (fork `turbo-tan/llama.cpp-tq3`), KV q8/q8, ctx 40960 |
 | `systemd/llama-qwen38.service` | Unit — Qwen3.8-27B-IQ3_M (fork `turbo-tan/llama.cpp-tq3`), KV q8/q8, ctx 40960 |
 | `systemd/llama-gemma4.service` | Unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 8`, KV q4/q4, ctx 98304 |
-| `systemd/gpu-guard.service` | Unit — thermal watchdog, `enabled` (persistent, unlike the three above) |
+| `systemd/colibri-qwen36.service` | Unit — Qwen3.6-35B-A3B MoE via the [Colibrì](https://github.com/JustVugg/colibri) engine (not llama.cpp), CUDA VRAM expert tier, `--auto-tier --cap 256`, `COLI_ALLOW_INSECURE_BIND=1` |
+| `systemd/gpu-guard.service` | Unit — thermal watchdog, `enabled` (persistent, unlike the four services above) |
 | `systemd/usb-port-guard.service` | System unit — disables the dead USB port11 on boot and on every resume (see `docs/usb-port11.md`) |
 | `systemd/99-wol.yaml` | netplan override — arms Wake-on-LAN on `eno1` |
 | `systemd/console-setup` | `/etc/default/console-setup` — TTY font config |
-| `bin/lmswitch` | Preset switcher (runs on Ancalagon): `coder\|qwen36\|qwen38\|gemma4\|off\|sleep\|status\|logs` |
+| `bin/lmswitch` | Preset switcher (runs on Ancalagon): `coder\|qwen36\|qwen38\|gemma4\|colibri\|off\|sleep\|status\|logs` |
 | `bin/gpu-guard` | Thermal watchdog daemon (nvidia-smi polling loop) |
 | `bin/usb-port-guard` | Disables a dead USB port by PCI address (bus number is not stable across boots) |
 | `bin/videoswitch` | DPMS toggle for the physical console (`off\|on\|status`) |
@@ -36,18 +37,19 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 
 ## Key symbols
 
-- `bin/lmswitch:24` — `wait_ready()` — polls `/health` up to 90s after starting a service; aborts if the unit isn't active
-- `bin/lmswitch:47` — main `case "$COMMAND" in` dispatch for `coder|qwen36|qwen38|gemma4|off|sleep|status|logs`
-- `bin/lmswitch:71` — `sleep|suspend` case — stops all three llama services, detaches `sudo -n systemctl suspend` via `nohup … & disown`
+- `bin/lmswitch:26` — `wait_ready()` — polls `/health` up to 90s after starting a service; aborts if the unit isn't active
+- `bin/lmswitch:48` — `ALL_SERVICES` array + `stop_all()` — single source of the five service names, shared by every case that needs to stop everything else first
+- `bin/lmswitch:56` — main `case "$COMMAND" in` dispatch for `coder|qwen36|qwen38|gemma4|colibri|off|sleep|status|logs`
+- `bin/lmswitch:86` — `sleep|suspend` case — stops all five services via `stop_all`, detaches `sudo -n systemctl suspend` via `nohup … & disown`
 - `bin/gpu-guard:12` — `WARN_TEMP`/`CRIT_TEMP` defaults (82°C / 86°C), empirically calibrated
-- `bin/gpu-guard:22` — `active_llama()` — finds which of the three `llama-*.service` units is active
+- `bin/gpu-guard:22` — `active_service()` — finds which of the five presets is active (renamed from `active_llama` on 2026-09-27 while fixing a real gap: the list was stuck at three names — coder/qwen36/gemma4 — and had never picked up `qwen38`, so the thermal watchdog couldn't cut that preset under sustained overheat; fixed alongside adding `colibri-qwen36`)
 - `bin/gpu-guard:28` — main polling loop — escalates WARN (log only) → sustained CRIT (`HOLD` seconds) → `systemctl --user stop` on the active service
 - `bin/videoswitch:23` — `require_fb()` — guards that `/sys/class/graphics/fb0/blank` exists
 - `bin/videoswitch:30` — `off|on|status` dispatch — writes to `fb0` via `sudo -n sh -c`, persists last state to `/run/videoswitch.state` (the `nvidia-drm` driver returns empty on read)
 - `bin/bootwin:13` — locates the "Windows Boot Manager" entry via `efibootmgr`
 - `bin/bootwin:21` — parses `BootNum` with `awk`, validates a 4-hex-digit regex before use
 - `bin/bootwin:42` — sets `BootNext` and detaches `systemctl reboot` (one-shot — firmware clears `BootNext` after the next boot)
-- `scripts/install.sh:14` — `scp` of the three `systemd/llama-*.service` units to `~/.config/systemd/user/`
+- `scripts/install.sh:14` — `scp` of the four `systemd/llama-*.service` units plus `colibri-qwen36.service` to `~/.config/systemd/user/`
 - `scripts/install.sh:19` — `scp` of `lmswitch`/`videoswitch`/`bootwin` to `~/.local/bin/` + remote `chmod +x`
 - `scripts/setup-system.sh:29` — enables `nvidia-suspend/resume/hibernate.service`
 - `scripts/setup-system.sh:33` — installs `systemd/99-wol.yaml` to `/etc/netplan/` + `netplan apply`
@@ -68,24 +70,25 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 
 ## Commands
 
-- Build: none — `llama-server` (upstream + TQ3 fork) is compiled manually on Ancalagon, outside this repo's scope (`scripts/build-llama.sh` is a reference only)
-- Test: none — no automated suite. Manual validation via `make status` + a fixed benchmark prompt against the regression thresholds in `AI_CONTEXT.md` § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s = regression)
+- Build: none — `llama-server` (upstream + TQ3 fork) and the Colibrì `qwen36` engine are compiled manually on Ancalagon, outside this repo's scope (`scripts/build-llama.sh` is a reference only)
+- Test: none — no automated suite. Manual validation via `make status` + a fixed benchmark prompt against the regression thresholds in `AI_CONTEXT.md` § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s, colibri <19 tok/s = regression)
 - Lint: `shellcheck bin/*` (manual, not hooked into CI — there is no CI in this repo)
 - Deploy: `make install` (units + wrappers) · `make install-system` (one-time host prerequisites) · `make install-gla` / `make install-skill` (Mac-side components)
-- Run: `make coder` / `make qwen36` / `make qwen38` / `make gemma4` (start a preset) · `make status` (health) · `make logs` (tail journal) · `make off` / `make sleep` (stop / suspend)
+- Run: `make coder` / `make qwen36` / `make qwen38` / `make gemma4` / `make colibri` (start a preset) · `make status` (health) · `make logs` (tail journal) · `make off` / `make sleep` (stop / suspend)
 
 ## Conventions & constraints
 
 - Bash scripts in `bin/` and `scripts/` are `set -euo pipefail`, shellcheck-clean, everything quoted — keep new scripts to the same bar.
-- `systemd/llama-*.service` units declare `Conflicts=` against **all** the other llama/lmstudio units, not just one — when adding a new preset, update the existing units too (systemd doesn't infer symmetry).
-- All three llama presets bind port `1234` on purpose — never assign a new preset a different port; `Conflicts=` is what makes that safe.
+- Every service unit (`llama-*.service` and `colibri-qwen36.service`) declares `Conflicts=` against **all** the other presets and against `lmstudio.service`, not just one — when adding a new preset, update the existing units too (systemd doesn't infer symmetry).
+- All five presets bind port `1234` on purpose — never assign a new preset a different port; `Conflicts=` is what makes that safe.
+- A non-llama.cpp engine (like Colibrì) is a first-class preset too: same port, same `Conflicts=` set, same `lmswitch` dispatch — `bin/lmswitch` doesn't assume every preset is a `llama-*.service`/`llama-server` invocation, it only assumes an OpenAI-compatible `/health` + `/v1/chat/completions` on `:1234`.
 - KV cache must stay symmetric (K quant == V quant) per service — an asymmetric K≠V pairing caused a catastrophic CUDA fallback (~1 tok/s) on Qwen3.6-27B; this was tested, not theoretical.
 - SSH aliases from the Mac must use the **absolute path** `/home/lucas/.local/bin/<script>` — non-interactive SSH sessions don't source the interactive shell's `$PATH`.
-- `gpu-guard.service` is `enabled` (persistent); the three `llama-*.service` units are intentionally **not** — don't "fix" this asymmetry, it's a deliberate VRAM-sharing decision (see MANUTENCAO.md gotchas).
+- `gpu-guard.service` is `enabled` (persistent); the four `llama-*.service` units and `colibri-qwen36.service` are intentionally **not** — don't "fix" this asymmetry, it's a deliberate VRAM-sharing decision (see MANUTENCAO.md gotchas).
 
 ## Common change recipes
 
-1. **Add a new model preset**: create `systemd/llama-<name>.service` mirroring the existing three (cross `Conflicts=`), add `Conflicts=llama-<name>.service` to the other units, add a case in `bin/lmswitch:46`, add the `scp` in `scripts/install.sh:14` and a `make <name>` target in `Makefile`. Deploy with `make install`, verify with `make <name>` + `make status`.
+1. **Add a new model preset**: create `systemd/<engine>-<name>.service` mirroring an existing one (cross `Conflicts=` against **all** current presets, llama.cpp-based or not), add `Conflicts=<engine>-<name>.service` to the other units, add its name to `ALL_SERVICES` and a case in `bin/lmswitch:56`, add the `scp` in `scripts/install.sh:14` and a `make <name>` target in `Makefile`. Deploy with `make install`, verify with `make <name>` + `make status`. The preset need not be `llama.cpp` at all — `colibri-qwen36.service` runs a different engine (Colibrì) and only has to satisfy `lmswitch`'s two assumptions (`:1234`, `/health` + `/v1/chat/completions`).
 2. **Change context window (`-c`) of a preset**: edit `ExecStart=` in the relevant `systemd/llama-*.service`, check whether `--n-cpu-moe` needs a matching bump (KV cache grows linearly with context — see `benchmarks/TUNING.md` for the ctx/ncmoe tradeoff table), update `limit.context` for the matching provider in `clients/opencode/opencode.json`, then `make install` + restart + `make status`.
 3. **Tune thermal watchdog thresholds**: edit `WARN_TEMP`/`CRIT_TEMP`/`HOLD` in `bin/gpu-guard:12-14` (or override via `GPU_GUARD_WARN_TEMP`/`GPU_GUARD_CRIT_TEMP`/`GPU_GUARD_HOLD` env in the unit), redeploy with `make install-system`, validate with `journalctl --user -u gpu-guard.service -f` under sustained load.
 4. **Add a new `make` target**: follow the existing pattern `@ssh $(REMOTE) /home/lucas/.local/bin/<script> <args>` for remote operations; if it invokes a new `bin/` script, add its `scp` to `scripts/install.sh`.

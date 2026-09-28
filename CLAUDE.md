@@ -5,8 +5,8 @@ Provisionamento operacional do Ancalagon (Ubuntu Server, RTX 4070 Ti SUPER) como
 ## Comandos essenciais
 
 ```bash
-make status               # estado dos 3 services + health probe :1234
-make coder|qwen36|qwen38|gemma4  # sobe o preset (para os outros automaticamente via Conflicts=)
+make status               # estado dos 5 services + health probe :1234
+make coder|qwen36|qwen38|gemma4|colibri  # sobe o preset (para os outros automaticamente via Conflicts=)
 make off                  # para o preset ativo
 make sleep                # para + suspende a máquina (wake via WoL: make wake)
 make logs                 # journalctl -f do service ativo
@@ -14,15 +14,17 @@ make install               # deploy de units + wrappers (scp + daemon-reload) no
 make install-system        # pré-requisitos de sistema (WoL, nvidia-suspend, console-font, usb-port-guard) — 1x por máquina
 ```
 
-Não há build nem suíte de testes automatizada neste repo (ver [MANUTENCAO.md](MANUTENCAO.md) § Build/Test/Lint/Deploy). Validação de mudança é `make status` + benchmark manual contra os thresholds de regressão em [`AI_CONTEXT.md`](AI_CONTEXT.md) § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s).
+Não há build nem suíte de testes automatizada neste repo (ver [MANUTENCAO.md](MANUTENCAO.md) § Build/Test/Lint/Deploy). Validação de mudança é `make status` + benchmark manual contra os thresholds de regressão em [`AI_CONTEXT.md`](AI_CONTEXT.md) § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s, colibri <19 tok/s).
 
 ## Gotchas (top 5)
 
 1. **KV cache assimétrico (K≠V) quebra o Qwen3.6-27B** — cai para ~1 tok/s (fallback CUDA catastrófico, testado e reproduzido). `llama-qwen36.service` usa `q8_0` simétrico nos dois lados; nunca mudar só um.
 2. **Aliases SSH do Mac exigem caminho absoluto** (`/home/lucas/.local/bin/lmswitch`, não `lmswitch` via PATH) — sessão SSH não-interativa não carrega o `$PATH` do shell interativo.
-3. **Services `llama-*` NÃO são `enabled`** (decisão consciente — VRAM compartilhada com tarefas eventuais). `gpu-guard.service` é a exceção: **é** `enabled`, roda sempre que a máquina está de pé.
-4. **Fonte de verdade é este repo, não o Ancalagon** — nunca editar `~/.config/systemd/user/llama-*.service` ou `~/.local/bin/lmswitch` direto no remoto; editar aqui e `make install`.
+3. **Services `llama-*` e `colibri-qwen36` NÃO são `enabled`** (decisão consciente — VRAM compartilhada com tarefas eventuais). `gpu-guard.service` é a exceção: **é** `enabled`, roda sempre que a máquina está de pé.
+4. **Fonte de verdade é este repo, não o Ancalagon** — nunca editar `~/.config/systemd/user/*.service` ou `~/.local/bin/lmswitch` direto no remoto; editar aqui e `make install`.
 5. **Ao encerrar um sweep de tuning, corrija as citações da flag no mesmo commit** — `Description=`, tabelas de `AI_CONTEXT.md`/`AGENTS.md` e os "config atual" de `benchmarks/` envelhecem juntos e em silêncio. Ao investigar um preset, a fonte de verdade é sempre o `ExecStart=` (ou `systemctl --user cat`), nunca a prosa.
+6. **O Colibri exige `COLI_ALLOW_INSECURE_BIND=1`** para bindar `0.0.0.0` — sem isso o processo recusa iniciar e sobe/morre em loop (`Restart=on-failure`). Decisão consciente de paridade com os `llama-*.service`, que também não autenticam (rede confiável = Tailscale/LAN).
+7. **O Colibri não fica pronto sem `--auto-tier --cap 256`** — sem `--cap 256` (= `n_experts`), o tier CUDA fica `disabled` e o preset roda 100% CPU (~0,6 tok/s em vez de ~27 tok/s). O sintoma no log é `[qtier] cap=8 != n_experts=256 -> tier disabled`.
 
 ## Ponteiros
 

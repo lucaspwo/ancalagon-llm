@@ -1,6 +1,6 @@
 # ancalagon-llm
 
-Operational setup for **Ancalagon** (Ubuntu Server 24.04, dual-boot with Windows) as a dedicated local LLM server, tuned for an RTX 4070 Ti SUPER (16 GB VRAM). Replaces LM Studio with native `llama.cpp` controlled by systemd, exposing four mutually-exclusive model presets — Qwen3-Coder 30B (MoE, upstream), Qwen3.6-27B (TQ3 ternary quant, `turbo-tan/llama.cpp-tq3` fork), Qwen3.8-27B (IQ3_M, same fork) and Gemma 4 26B-A4B-it (MoE, upstream) — all on the same OpenAI-compatible port so existing clients don't need to change URLs. Consumed from a Mac (Glaurung) over Tailscale.
+Operational setup for **Ancalagon** (Ubuntu Server 24.04, dual-boot with Windows) as a dedicated local LLM server, tuned for an RTX 4070 Ti SUPER (16 GB VRAM). Replaces LM Studio with native `llama.cpp` controlled by systemd, exposing five mutually-exclusive model presets — Qwen3-Coder 30B (MoE, upstream `llama.cpp`), Qwen3.6-27B (TQ3 ternary quant, `turbo-tan/llama.cpp-tq3` fork), Qwen3.8-27B (IQ3_M, same fork), Gemma 4 26B-A4B-it (MoE, upstream `llama.cpp`) and Qwen3.6-35B-A3B (MoE, [Colibrì](https://github.com/JustVugg/colibri) engine with its CUDA VRAM expert tier) — all on the same OpenAI-compatible port so existing clients don't need to change URLs. Consumed from a Mac (Glaurung) over Tailscale.
 
 ## Motivation
 
@@ -26,11 +26,12 @@ Cross-machine over Tailscale: 96.4 tok/s gen on the coder preset, 255ms round-tr
 Glaurung (Mac)                    Ancalagon-Ubuntu
                                   (Tailscale / LAN)
 aliases:                          systemd --user:
-  anc_lin_coder  ────ssh───▶      llama-coder.service ──┐
-  anc_lin_qwen36 ────ssh───▶      llama-qwen36.service ─┤
-  anc_lin_qwen38 ────ssh───▶      llama-qwen38.service ─┤
-  anc_lin_gemma4 ────ssh───▶      llama-gemma4.service ─┼─ Conflicts=
-  anc_lin_off    ────ssh───▶      (lmstudio.service    ─┘  (only one up)
+  anc_lin_coder  ────ssh───▶      llama-coder.service ────┐
+  anc_lin_qwen36 ────ssh───▶      llama-qwen36.service ───┤
+  anc_lin_qwen38 ────ssh───▶      llama-qwen38.service ───┤
+  anc_lin_gemma4 ────ssh───▶      llama-gemma4.service ───┼─ Conflicts=
+  (make colibri) ────ssh───▶      colibri-qwen36.service ─┤  (only one up)
+  anc_lin_off    ────ssh───▶      (lmstudio.service      ─┘
   anc_lin_status ────ssh───▶      + disabled)
                                        │
                                        ▼
@@ -39,12 +40,13 @@ aliases:                          systemd --user:
 curl http://<ancalagon-tailscale-ip>:1234 ─┘
 ```
 
-Port **1234** is the same one LM Studio used to bind, so existing clients keep working unmodified. The four `llama-*.service` units declare `Conflicts=` against each other and against `lmstudio.service`, so systemd guarantees only one is ever running — no manual stop/start choreography, no risk of two models fighting over the same 16 GB of VRAM.
+Port **1234** is the same one LM Studio used to bind, so existing clients keep working unmodified. The five service units (four `llama-*.service` plus `colibri-qwen36.service`) declare `Conflicts=` against each other and against `lmstudio.service`, so systemd guarantees only one is ever running — no manual stop/start choreography, no risk of two models fighting over the same 16 GB of VRAM.
 
 ## Stack / Requirements
 
 - Bash (systemd wrapper scripts, `set -euo pipefail`)
 - `llama.cpp` compiled with CUDA (sm_89) — upstream and the `turbo-tan/llama.cpp-tq3` fork, both built out-of-repo on Ancalagon
+- [Colibrì](https://github.com/JustVugg/colibri) (`qwen36` engine, `CUDA=1`), Python 3 venv, out-of-repo on Ancalagon
 - systemd `--user` units (Ancalagon side)
 - `curl`, `jq` for health probes and JSON handling
 - Tailscale (or LAN) connectivity between the Mac client and Ancalagon
@@ -56,6 +58,7 @@ Prerequisites already present on Ancalagon (not managed by this repo — see [MA
 - `~/git/llama.cpp/build/bin/llama-server` compiled with CUDA sm_89
 - `~/git/llama.cpp-tq3/build/bin/llama-server` (TQ3 fork, same flags)
 - GGUF model files in `~/.lmstudio/models/…` and `~/models/gguf/…`
+- `~/git/colibri/` (venv at `.venv/`, `c/qwen36` built with `CUDA=1`) + model container at `/mnt/black/colibri/qwen36_i4_gs64` (`Kreuzzelg/qwen36-35b-a3b-colibri-i4-gs64`, ~22 GB)
 
 From the Mac (this repo's checkout):
 
@@ -82,6 +85,7 @@ make coder     # start Qwen3-Coder-30B (MoE, --n-cpu-moe 16, ctx 96K)
 make qwen36    # start Qwen3.6-27B-TQ3_4S (100% GPU, ctx 40K)
 make qwen38    # start Qwen3.8-27B-IQ3_M (100% GPU, ctx 40K)
 make gemma4    # start Gemma 4 26B-A4B-it (MoE, --n-cpu-moe 8, ctx 96K)
+make colibri   # start Qwen3.6-35B-A3B via Colibri (CUDA VRAM tier, ~70% experts resident)
 make off       # stop whichever preset is active
 make sleep     # stop + suspend the whole machine (wake via WoL)
 make status    # service states + health probe on :1234
@@ -115,7 +119,7 @@ anc_win_restart    # from Windows → normal reboot, lands on Ubuntu (the defaul
 
 ```
 bin/                    lmswitch, gpu-guard, videoswitch, bootwin — the operational wrapper scripts
-systemd/                llama-{coder,qwen36,qwen38,gemma4}.service, gpu-guard.service, 99-wol.yaml, console-setup
+systemd/                llama-{coder,qwen36,qwen38,gemma4}.service, colibri-qwen36.service, gpu-guard.service, 99-wol.yaml, console-setup
 scripts/                install.sh (deploy), setup-system.sh (WoL/nvidia-suspend/console prerequisites), build-llama.sh
 clients/glaurung-llm/   gla — Mac-side backend switcher (llama.cpp Metal / MLX) + TUNING.md
 clients/opencode/       opencode.json template + README for wiring opencode to Ancalagon/Glaurung backends

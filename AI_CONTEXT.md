@@ -6,7 +6,7 @@ Bootstrap de contexto para assistentes (humanos ou LLMs) que vão trabalhar nest
 
 ## O que este repo faz
 
-Provisionamento operacional do **Ancalagon-Ubuntu** como servidor LLM local dedicado, exposto via Tailscale em `100.64.0.10:1234` com API OpenAI-compatível. Substitui a instalação anterior baseada em LM Studio por `llama.cpp` nativo controlado por systemd.
+Provisionamento operacional do **Ancalagon-Ubuntu** como servidor LLM local dedicado, exposto via Tailscale em `100.64.0.10:1234` com API OpenAI-compatível. Substitui a instalação anterior baseada em LM Studio por `llama.cpp` nativo controlado por systemd, mais um quinto preset (`colibri-qwen36.service`) que roda um engine diferente ([Colibrì](https://github.com/JustVugg/colibri)) atrás da mesma porta/API.
 
 Não inclui: compilação do `llama.cpp`, download de modelos, configuração de Tailscale, ou código do Mac client (`local-claude`). Ver "O que NÃO está aqui" em [`CLAUDE.md`](CLAUDE.md).
 
@@ -22,10 +22,11 @@ Não inclui: compilação do `llama.cpp`, download de modelos, configuração de
 ```
 Glaurung (Mac)                        Ancalagon-Ubuntu
 aliases .zshrc                         systemd --user (Conflicts= entre si):
-  anc_lin_coder  ──ssh──▶              llama-coder.service   (upstream)
-  anc_lin_qwen36 ──ssh──▶              llama-qwen36.service  (fork TQ3)
-  anc_lin_qwen38 ──ssh──▶              llama-qwen38.service  (fork TQ3)
-  anc_lin_gemma4 ──ssh──▶              llama-gemma4.service  (upstream)
+  anc_lin_coder  ──ssh──▶              llama-coder.service     (llama.cpp upstream)
+  anc_lin_qwen36 ──ssh──▶              llama-qwen36.service    (llama.cpp fork TQ3)
+  anc_lin_qwen38 ──ssh──▶              llama-qwen38.service    (llama.cpp fork TQ3)
+  anc_lin_gemma4 ──ssh──▶              llama-gemma4.service    (llama.cpp upstream)
+  make colibri   ──ssh──▶              colibri-qwen36.service  (engine Colibri)
   anc_lin_off    ──ssh──▶              lmstudio.service      (DISABLED)
   srl-coder                                 │
   srl-tq                                    ▼
@@ -34,7 +35,7 @@ aliases .zshrc                         systemd --user (Conflicts= entre si):
 curl http://100.64.0.10:1234 ──────────────┘
 ```
 
-Quatro services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio service foi desabilitado em `2026-04-22` e **não deve voltar** — a razão está em [`benchmarks/TUNING.md`](benchmarks/TUNING.md) (LM Studio subutilizava GPU em ~35% de utilização vs 96% com llama.cpp nativo + quant TQ3).
+Cinco services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio service foi desabilitado em `2026-04-22` e **não deve voltar** — a razão está em [`benchmarks/TUNING.md`](benchmarks/TUNING.md) (LM Studio subutilizava GPU em ~35% de utilização vs 96% com llama.cpp nativo + quant TQ3). O `colibri-qwen36.service` (2026-09-27) não é `llama.cpp`: é o engine [Colibrì](https://github.com/JustVugg/colibri), que faz streaming de experts MoE entre RAM/VRAM/disco — aqui com o tier CUDA promovendo ~70% dos experts pra VRAM (`--auto-tier --cap 256`, `COLI_ALLOW_INSECURE_BIND=1`).
 
 ## Artefatos mantidos por este repo
 
@@ -44,7 +45,8 @@ Quatro services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio 
 | `systemd/llama-qwen36.service` | user unit — Qwen3.6-27B TQ3_4S (fork), KV q8/q8, ctx 40K | idem |
 | `systemd/llama-qwen38.service` | user unit — Qwen3.8-27B IQ3_M (fork), KV q8/q8, ctx 40K | idem |
 | `systemd/llama-gemma4.service` | user unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 8`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
-| `bin/lmswitch` | wrapper com subcomandos `coder\|qwen36\|qwen38\|gemma4\|off\|sleep\|status\|logs` | `~/.local/bin/` no Ancalagon |
+| `systemd/colibri-qwen36.service` | user unit — Qwen3.6-35B-A3B via engine Colibri, tier CUDA (`--auto-tier --cap 256`) | `~/.config/systemd/user/` no Ancalagon |
+| `bin/lmswitch` | wrapper com subcomandos `coder\|qwen36\|qwen38\|gemma4\|colibri\|off\|sleep\|status\|logs` | `~/.local/bin/` no Ancalagon |
 | `bin/gpu-guard` | watchdog térmico (nvidia-smi, escalonado WARN/CRIT) | `~/.local/bin/` + user unit `enabled` |
 | `systemd/gpu-guard.service` | user unit do watchdog, persistente (sobe no boot) | `~/.config/systemd/user/` no Ancalagon |
 | `bin/usb-port-guard` | desabilita a USB port11 morta (erro -71 em loop) | `/usr/local/bin/` no Ancalagon |
@@ -78,7 +80,7 @@ Quatro services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio 
 make install
 
 # Restart do service afetado
-make coder     # ou make qwen36, make qwen38, make gemma4
+make coder     # ou make qwen36, make qwen38, make gemma4, make colibri
 
 # Verificar saúde
 make status
@@ -89,6 +91,8 @@ make status
 #   qwen36: <25 tok/s = regressão
 #   qwen38: <25 tok/s = regressão
 #   gemma4: <40 tok/s = regressão
+#   colibri: <19 tok/s = regressão (medido 27,4 tok/s estável em 2026-09-27, tier CUDA
+#            com 7142/10240 experts residentes em VRAM; piso = 70% do medido)
 ```
 
 ## Próximos passos potenciais
