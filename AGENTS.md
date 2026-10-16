@@ -24,6 +24,7 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 | `scripts/install.sh` | Deploys units + `bin/` wrappers to Ancalagon via `scp` + `daemon-reload` |
 | `scripts/setup-system.sh` | One-time system prerequisites (WoL, nvidia-suspend/resume/hibernate, console font, gpu-guard enable, usb-port-guard) |
 | `scripts/build-llama.sh` | Reference build script for llama.cpp (manual, not wired to `make`) |
+| `scripts/bench-presets.py` | A/B benchmark of the presets (decode + prefill), run on Ancalagon; method in `benchmarks/TUNING.md` §16 |
 | `clients/glaurung-llm/gla` | Mac-side backend switcher (llama.cpp Metal / MLX) + opencode launcher |
 | `clients/glaurung-llm/TUNING.md` | Mac-side tuning data (untracked at last audit — see coverage note) |
 | `clients/opencode/opencode.json` | Template config wiring `ancalagon/*`, `glaurung/*`, `glaurung-mlx/*` providers |
@@ -71,7 +72,7 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 ## Commands
 
 - Build: none — `llama-server` (upstream + TQ3 fork) and the Colibrì `qwen36` engine are compiled manually on Ancalagon, outside this repo's scope (`scripts/build-llama.sh` is a reference only)
-- Test: none — no automated suite. Manual validation via `make status` + a fixed benchmark prompt against the regression thresholds in `AI_CONTEXT.md` § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s, colibri <19 tok/s = regression)
+- Test: none — no automated suite. Manual validation via `make status` + a fixed benchmark prompt (`scripts/bench-presets.py`) against the regression thresholds in `AI_CONTEXT.md` § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s, colibri <19 tok/s = regression)
 - Lint: `shellcheck bin/*` (manual, not hooked into CI — there is no CI in this repo)
 - Deploy: `make install` (units + wrappers) · `make install-system` (one-time host prerequisites) · `make install-gla` / `make install-skill` (Mac-side components)
 - Run: `make coder` / `make qwen36` / `make qwen38` / `make gemma4` / `make colibri` (start a preset) · `make status` (health) · `make logs` (tail journal) · `make off` / `make sleep` (stop / suspend)

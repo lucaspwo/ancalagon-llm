@@ -86,6 +86,7 @@ make coder     # ou make qwen36, make qwen38, make gemma4, make colibri
 make status
 
 # Bench rápido: prompt de "quantum entanglement 5 paragraphs", 400 tokens
+# (automatizado: scp scripts/bench-presets.py Anc_U-T:~ && ssh Anc_U-T 'python3 ~/bench-presets.py LABEL coder ...')
 # Thresholds de regressão:
 #   coder: <55 tok/s = regressão
 #   qwen36: <25 tok/s = regressão

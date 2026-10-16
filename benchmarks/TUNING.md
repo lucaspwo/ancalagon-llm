@@ -1,6 +1,6 @@
 # Tuning benchmarks — dados empíricos
 
-Hardware: Ryzen 5 7600X (6c/12t) + RTX 4070 Ti SUPER (16 GB VRAM), Ubuntu 24.04, CUDA 13.2.
+Hardware: Ryzen 5 7600X (6c/12t) + RTX 4070 Ti SUPER (16 GB VRAM), Ubuntu 24.04. CUDA/kernel/driver mudam a cada janela de manutenção — versões vigentes na seção mais recente (hoje §16: CUDA 13.4).
 
 Metodologia: prompt fixo ("Explain quantum entanglement in 5 paragraphs", 400 max_tokens, T=0.2) para throughput real; `llama-bench` para varreduras de parâmetros.
 
@@ -556,3 +556,61 @@ coli serve --model /mnt/black/colibri/qwen36_i4_gs64 --host 0.0.0.0 --port 1234 
 ```
 
 **Fonte de verdade é o `ExecStart=`/`Environment=` de [`systemd/colibri-qwen36.service`](../systemd/colibri-qwen36.service)**, não este texto.
+
+## 16. Janela de atualização — faixa segura + kernel 6.8.0-147 + CUDA 13.4.3 (2026-10-16)
+
+**Estado de partida:** kernel `6.8.0-146`, driver `nvidia-open` **`615.71.09`**, CUDA **13.4**
+(`/usr/local/cuda` → `cuda-13.4`). A migração 13.3 → 13.4 / `-137` → `-146` / `610.57.04` →
+`615.71.09`, feita entre setembro e outubro de 2026, **não foi registrada aqui** — esta seção fixa o
+estado a partir de agora. O `llama-server` linka `libcudart`/`libcublas`/`libcublasLt` de
+`cuda-cudart-13-4`/`libcublas-13-4`. Os 88 holds (`*-13-4`, `nvidia-*`, metapacotes `linux-*`)
+fazem um `apt-get upgrade` simples respeitar a política sozinho.
+
+### O que mudou
+
+| Faixa | Pacotes | Reboot |
+|---|---|---|
+| Segura (`apt-get upgrade`, holds intactos) | 41 — systemd 255.4-1ubuntu8.**18**, openssh 13.**20**, curl, sudo, libxml2, libx11, libpng, libarchive, apparmor, bind9, tzdata… (maioria `noble-security`) + **tailscale 1.102.5 → 1.104.1** | não |
+| Kernel | `6.8.0-146` → **`6.8.0-147`** | sim |
+| CUDA | `13.4.2` → **`13.4.3`**: metapacotes, nvcc (V13.4.92), nsight, `libcusolver` 12.3.5.3. **`libcublas`/`cudart` sem update** | — |
+
+Nenhum pacote da faixa segura está na cadeia `ldd` do `llama-server` (libc6, libstdc++6, libgcc-s1,
+libgomp1, cudart, cublas, libnvidia-compute). O DKMS construiu `nvidia/615.71.09` para o `-147` e
+**autoassinou** com a `ancalagon Secure Boot Module Signature key` — o `sig_key` do módulo bateu com o
+serial da MOK enrolled antes do reboot (checagem da memória `project_ancalagon_mok_apagada`). Os 17
+pacotes atualizados foram re-held; snapd 2.77.1 ficou adiado por phasing.
+
+### A/B
+
+Script: [`scripts/bench-presets.py`](../scripts/bench-presets.py), rodado no próprio Ancalagon.
+Decode = média de 3 runs após 1 descartado (prompt canônico, 400 tokens, **T=0**); prefill = prompt
+de ~2.1K tokens com `cache_prompt:false` (`prompt_n` conferido ≈ 2.1K — evita a armadilha do §13).
+Antes = `-146` com uptime ~15 min; depois = `-147` logo após o reboot, coder por último.
+
+| Preset | decode `-146` | decode `-147` | Δ | prefill `-146` | prefill `-147` | VRAM |
+|---|---|---|---|---|---|---|
+| coder | 87.65 (87.16-88.01) | **88.79** (88.77-88.82) | +1.3% | 1771 | 1778 | 15174 MiB |
+| qwen36 TQ3 | 39.75 (39.74-39.76) | **39.72** (39.72-39.72) | −0.1% | 1341 | 1340 | 15038 MiB |
+| qwen38 | 40.09 (40.08-40.10) | **40.08** (40.06-40.09) | 0.0% | 1499 | 1497 | 14936 MiB |
+| gemma4 | 84.60 (83.01-85.73) | **82.68** (80.85-83.71) | −2.3% | 2127 | 2151 | 13916 MiB |
+| colibri | 36.02 (35.25-36.90) | **35.93** (34.73-36.92) | −0.2% | — | — | 14154 MiB |
+
+**Sem regressão.** O −2.3% do gemma4 é ruído: os ranges se sobrepõem, o prefill subiu 1.1% e o run
+de 80.85 caiu com load 4.9 minutos após o boot (mesmo efeito de contenção pós-boot do offload MoE já
+visto no coder). **Confirmado:** re-run com a carga assentada (uptime 11 min, load 0.14) deu
+gemma4 **84.70** (84.11-85.16), prefill 2108 — igual ao `-146`; colibri 36.27. VRAM idêntica nos
+cinco presets.
+
+### Armadilhas
+
+- **Colibri exige `model` no payload.** Sem o campo, `/v1/chat/completions` devolve
+  **404 `model_not_found`** (`The model None does not exist`) — o `llama-server` ignora o campo, então
+  um bench escrito contra os `llama-*` quebra só no quinto preset. O script lê o id de `/v1/models`.
+- **Colibri: 36 tok/s aqui vs 27.4 no §15.** O §15 media tempo de parede com outro payload; este
+  script também usa tempo de parede, mas com T=0 e prompt via chat. O `/v1/chat/completions` do
+  `coli serve` não devolveu `timings` nesta janela; o C do engine (`qwen36.c:651`) tem um bloco com
+  formato **diferente** do llama (`tokens_per_sec`, não `predicted_per_second`) — o script só usa
+  `timings` no formato llama e cai no tempo de parede no resto, para não misturar métodos em silêncio.
+  **Compare o Colibri só contra números do mesmo script.** O threshold de 19 tok/s continua valendo.
+- **Coder no primeiro run pós-boot oscila** (62 → 88 tok/s em runs consecutivos na tentativa
+  descartada desta janela) — daí 4 runs com o 1º descartado, e o coder por último na ordem.

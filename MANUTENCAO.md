@@ -26,6 +26,7 @@ Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Co
 | `scripts/install.sh` | Deploy idempotente (scp + daemon-reload) dos units + wrappers para o Ancalagon |
 | `scripts/setup-system.sh` | Aplica pré-requisitos de sistema (WoL, `nvidia-suspend/resume/hibernate`, fonte do console, `gpu-guard` habilitado) |
 | `scripts/build-llama.sh` | Build do `llama.cpp` (referência; compilação real é manual no Ancalagon) |
+| `scripts/bench-presets.py` | Benchmark A/B dos presets (decode + prefill), roda no Ancalagon; método em `benchmarks/TUNING.md` §16 |
 | `clients/glaurung-llm/gla` | Wrapper Mac-side: sobe backend local (llama.cpp Metal ou MLX) + abre `opencode` já configurado |
 | `clients/glaurung-llm/TUNING.md` | Dados de tuning do lado Mac (não commitado até esta rodada — ver nota de cobertura no relatório) |
 | `clients/opencode/opencode.json` | Template de config do `opencode` com os providers `ancalagon/*`, `glaurung/*`, `glaurung-mlx/*` |
@@ -111,7 +112,7 @@ Claude Code cloud monta um briefing autocontido → `anc-delegate preflight` gar
 ## Build / Test / Lint / Deploy
 
 - **Build**: não há build deste repo em si — os binários `llama-server` (upstream e fork TQ3) são compilados manualmente no Ancalagon, fora do escopo deste repo (`scripts/build-llama.sh` é referência, não automatizado por `make`).
-- **Test**: não há suíte de testes automatizada. Validação é manual: `make status` + um benchmark rápido de referência (prompt fixo "Explain quantum entanglement in 5 paragraphs", 400 tokens) comparado contra os thresholds de regressão documentados em `AI_CONTEXT.md` § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s, colibri <19 tok/s = regressão).
+- **Test**: não há suíte de testes automatizada. Validação é manual: `make status` + um benchmark rápido de referência (`scripts/bench-presets.py`; prompt fixo "Explain quantum entanglement in 5 paragraphs", 400 tokens) comparado contra os thresholds de regressão documentados em `AI_CONTEXT.md` § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s, colibri <19 tok/s = regressão).
 - **Lint**: os scripts em `bin/` são shellcheck-clean por convenção (`set -euo pipefail`, tudo entre aspas) — não há hook automatizado, rodar `shellcheck bin/*` manualmente antes de commitar mudanças em shell.
 - **Deploy**: `make install` (units + wrappers), `make install-system` (pré-requisitos de sistema, uma vez por máquina), `make install-gla` / `make install-skill` (componentes Mac-side). Todos idempotentes — reexecutar sobrescreve sem efeito colateral.
 

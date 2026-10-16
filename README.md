@@ -120,7 +120,7 @@ anc_win_restart    # from Windows → normal reboot, lands on Ubuntu (the defaul
 ```
 bin/                    lmswitch, gpu-guard, videoswitch, bootwin — the operational wrapper scripts
 systemd/                llama-{coder,qwen36,qwen38,gemma4}.service, colibri-qwen36.service, gpu-guard.service, 99-wol.yaml, console-setup
-scripts/                install.sh (deploy), setup-system.sh (WoL/nvidia-suspend/console prerequisites), build-llama.sh
+scripts/                install.sh (deploy), setup-system.sh (WoL/nvidia-suspend/console prerequisites), build-llama.sh, bench-presets.py (A/B bench)
 clients/glaurung-llm/   gla — Mac-side backend switcher (llama.cpp Metal / MLX) + TUNING.md
 clients/opencode/       opencode.json template + README for wiring opencode to Ancalagon/Glaurung backends
 skills/delegando-ancalagon/  Claude Code skill + anc-delegate — headless delegation from cloud Claude to Ancalagon
