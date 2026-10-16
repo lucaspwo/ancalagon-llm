@@ -57,12 +57,16 @@ correto. Para um refresh completo, use a skill `/atualizando-docs-manutencao`
 
 ## Commit/push
 
-O remote `origin` tem **duas `pushurl`** configuradas (GitHub + GitLab homelab) — um único `git push` alcança os dois:
+O remote `origin` aponta **só para o GitLab do homelab** (fetch e push):
 
 ```
-origin  git@github.com:lucaspwo/ancalagon-llm.git (fetch)
-origin  git@github.com:lucaspwo/ancalagon-llm.git (push)
+origin  ssh://git@gitlab.lab.lucaspwo.com:2222/lucaspwo/ancalagon-llm.git (fetch)
 origin  ssh://git@gitlab.lab.lucaspwo.com:2222/lucaspwo/ancalagon-llm.git (push)
 ```
 
-Se o GitLab do homelab estiver inacessível (fora da rede/Tailscale), o push falha só nesse destino — o GitHub recebe normalmente; repetir o `git push` quando o homelab voltar sincroniza o resto. Nunca usar `--no-verify` para pular hooks.
+**O GitHub (`lucaspwo/ancalagon-llm`) está congelado de propósito em `2c8c099`** — os commits
+seguintes são mais "privados" e não devem ir para lá. Nunca readicionar a `pushurl` do GitHub nem
+fazer push direto para ele sem pedido explícito.
+
+Se o GitLab estiver inacessível (fora da rede/Tailscale ou homelab offline), o `git push` **trava**
+(não há outro destino): interrompa e repita quando o homelab voltar — os commits ficam só locais até lá. Nunca usar `--no-verify` para pular hooks.
