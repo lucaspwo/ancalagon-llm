@@ -20,6 +20,7 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 | `bin/gpu-guard` | Thermal watchdog daemon (nvidia-smi polling loop) |
 | `bin/usb-port-guard` | Disables a dead USB port by PCI address (bus number is not stable across boots) |
 | `bin/videoswitch` | DPMS toggle for the physical console (`off\|on\|status`) |
+| `bin/videoswitch-reblank` + `systemd/90-videoswitch-reblank.rules` | udev hook (`drm change HOTPLUG=1`) that re-blanks `fb0` when a monitor's sleep/HPD drop makes nvidia-drm relight the output after `videoswitch off` |
 | `bin/bootwin` | One-shot UEFI reboot into Windows (`--dry-run` supported) |
 | `scripts/install.sh` | Deploys units + `bin/` wrappers to Ancalagon via `scp` + `daemon-reload` |
 | `scripts/setup-system.sh` | One-time system prerequisites (WoL, nvidia-suspend/resume/hibernate, console font, gpu-guard enable, usb-port-guard) |
@@ -47,11 +48,13 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 - `bin/gpu-guard:28` — main polling loop — escalates WARN (log only) → sustained CRIT (`HOLD` seconds) → `systemctl --user stop` on the active service
 - `bin/videoswitch:23` — `require_fb()` — guards that `/sys/class/graphics/fb0/blank` exists
 - `bin/videoswitch:30` — `off|on|status` dispatch — writes to `fb0` via `sudo -n sh -c`, persists last state to `/run/videoswitch.state` (the `nvidia-drm` driver returns empty on read)
+- `bin/videoswitch-reblank:22` — re-blank loop (10 × 0.5 s after each DRM hotplug uevent), only when `/run/videoswitch.state` is `off`; counts only `connected` connectors (disconnected ones also report `dpms=On`)
 - `bin/bootwin:13` — locates the "Windows Boot Manager" entry via `efibootmgr`
 - `bin/bootwin:21` — parses `BootNum` with `awk`, validates a 4-hex-digit regex before use
 - `bin/bootwin:42` — sets `BootNext` and detaches `systemctl reboot` (one-shot — firmware clears `BootNext` after the next boot)
 - `scripts/install.sh:14` — `scp` of the four `systemd/llama-*.service` units plus `colibri-qwen36.service` to `~/.config/systemd/user/`
 - `scripts/install.sh:19` — `scp` of `lmswitch`/`videoswitch`/`bootwin` to `~/.local/bin/` + remote `chmod +x`
+- `scripts/install.sh:24` — `sudo install` of `videoswitch-reblank` to `/usr/local/bin/` and the udev rule to `/etc/udev/rules.d/` + `udevadm control --reload`
 - `scripts/setup-system.sh:29` — enables `nvidia-suspend/resume/hibernate.service`
 - `scripts/setup-system.sh:33` — installs `systemd/99-wol.yaml` to `/etc/netplan/` + `netplan apply`
 - `scripts/setup-system.sh:50` — installs and `enable --now`s `gpu-guard.service`

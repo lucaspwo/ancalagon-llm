@@ -1,0 +1,32 @@
+#!/bin/bash
+# videoswitch-reblank — mantém o vídeo apagado depois de `videoswitch off`, mesmo com hotplug.
+#
+# Chamado pela regra udev 90-videoswitch-reblank.rules a cada uevent `drm change HOTPLUG=1`.
+#
+# Por que existe: o monitor DisplayPort, ao entrar em sono profundo, derruba o HPD. O nvidia-drm
+# trata isso como hotplug, o fbcon refaz o modeset e religa a saída — o `off` "desfazia sozinho"
+# entre 11 s e ~160 s depois (medido 2026-11-02, driver 615.71.10). Aqui só reaplicamos o blank
+# quando o último comando do usuário foi `off` (estado em /run/videoswitch.state, zerado no boot).
+#
+# Roda como root (udev). Instalado em /usr/local/bin por `make install`.
+set -u
+
+STATE=/run/videoswitch.state
+FB=/sys/class/graphics/fb0/blank
+WINDOW_TICKS=10   # 10 × 0,5 s: o modeset do fbcon roda em paralelo ao uevent, logo depois dele
+TICK=0.5
+
+[ "$(cat "$STATE" 2>/dev/null)" = off ] || exit 0
+[ -e "$FB" ] || exit 0
+
+for _ in $(seq 1 "$WINDOW_TICKS"); do
+  sleep "$TICK"
+  for dpms in /sys/class/drm/card*-*/dpms; do
+    # Conector desconectado também reporta dpms=On: só conta o que tem monitor.
+    [ "$(cat "${dpms%dpms}status" 2>/dev/null)" = connected ] || continue
+    [ "$(cat "$dpms" 2>/dev/null)" = On ] || continue
+    echo 4 > "$FB"
+    logger -t videoswitch-reblank "saída religada por hotplug (${dpms%/dpms}); apagada de novo"
+    break
+  done
+done

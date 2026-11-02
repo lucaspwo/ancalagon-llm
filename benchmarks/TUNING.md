@@ -550,7 +550,7 @@ explorar (ver `docs/superpowers` se um plano formal for aberto depois).
 
 ```
 COLI_CUDA=1 COLI_GPUS=0 CUDA_EXPERT_GB=auto OMP_NUM_THREADS=6 OMP_WAIT_POLICY=PASSIVE
-OMP_PROC_BIND=close COLI_ALLOW_INSECURE_BIND=1 COLI_ALLOWED_HOSTS=ancalagon-ubuntu,192.168.1.8
+OMP_PROC_BIND=close COLI_ALLOW_INSECURE_BIND=1 COLI_ALLOWED_HOSTS=ancalagon-ubuntu,ancalagon.local
 coli serve --model /mnt/black/colibri/qwen36_i4_gs64 --host 0.0.0.0 --port 1234 \
   --auto-tier --cap 256 --gpu 0
 ```
@@ -669,7 +669,8 @@ Config: provider `@ai-sdk/openai-compatible` com `baseURL` `http://ancalagon-ubu
 1. **403 para qualquer cliente remoto.** O `coli serve` tem um host guard anti-DNS-rebinding que só
    aceita `Host` = loopback/bind address. Até hoje o preset **só tinha sido usado via localhost** (os
    benchmarks rodam no Anc; o gateway não anuncia o colibri). Corrigido com
-   `COLI_ALLOWED_HOSTS=ancalagon-ubuntu,192.168.1.8`. É uma lista explícita, não `'*'`, para manter o
+   `COLI_ALLOWED_HOSTS=ancalagon-ubuntu,192.168.1.8` (no mesmo dia trocado o `.8` por `ancalagon.local`:
+   o IP do Anc na LAN é DHCP volátil — hoje `.19` — e o `.8` passou a ser o iPhone). É uma lista explícita, não `'*'`, para manter o
    guard contra uma página maliciosa no navegador do Mac. Quem usar outro nome/IP na URL precisa
    entrar na lista.
 2. **Sem tool calling nativo:** `Tool use is not wired up for the qwen36 engine yet`.

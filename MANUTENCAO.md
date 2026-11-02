@@ -22,6 +22,7 @@ Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Co
 | `bin/lmswitch` | Wrapper que troca entre os cinco presets, faz health-poll, mostra status/logs (roda no Ancalagon) |
 | `bin/gpu-guard` | Watchdog térmico da GPU — loop de `nvidia-smi`, corta o service ativo em superaquecimento sustentado |
 | `bin/videoswitch` | Toggle de DPMS do console físico via `/sys/class/graphics/fb0/blank` |
+| `bin/videoswitch-reblank` + `systemd/90-videoswitch-reblank.rules` | Hook udev (`drm change HOTPLUG=1`) que reapaga o `fb0` quando o hotplug do monitor religa a saída depois de um `videoswitch off` |
 | `bin/bootwin` | Reboot one-shot para Windows via `efibootmgr -n` (BootNext) |
 | `scripts/install.sh` | Deploy idempotente (scp + daemon-reload) dos units + wrappers para o Ancalagon |
 | `scripts/setup-system.sh` | Aplica pré-requisitos de sistema (WoL, `nvidia-suspend/resume/hibernate`, fonte do console, `gpu-guard` habilitado) |
@@ -48,11 +49,13 @@ Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Co
 - `bin/gpu-guard:28` — loop principal — polling de `nvidia-smi` a cada `INTERVAL` (5s default), escalona WARN (loga) → CRIT sustentado por `HOLD` (30s) → `systemctl --user stop` do service ativo
 - `bin/videoswitch:23` — `require_fb()` — valida que `/sys/class/graphics/fb0/blank` existe antes de qualquer operação
 - `bin/videoswitch:30` — dispatch `off|on|status` — escreve em `fb0` via `sudo -n sh -c` e persiste último estado em `/run/videoswitch.state` (o driver `nvidia-drm` retorna vazio na leitura)
+- `bin/videoswitch-reblank:22` — loop de reapagar (10 × 0,5 s após cada uevent de hotplug DRM), só se `/run/videoswitch.state` for `off`; conta só conectores `connected` (os desconectados também reportam `dpms=On`)
 - `bin/bootwin:13` — parse do `efibootmgr` para achar a entry "Windows Boot Manager"
 - `bin/bootwin:21` — extração do `BootNum` via `awk` (valida regex hex de 4 dígitos antes de usar)
 - `bin/bootwin:42` — `efibootmgr -n "$WIN_ID"` + `systemctl reboot` destacado (one-shot — firmware consome `BootNext` e o boot seguinte volta ao default)
 - `scripts/install.sh:14` — `scp` dos quatro `systemd/llama-*.service` mais `colibri-qwen36.service` para `~/.config/systemd/user/` no Ancalagon
 - `scripts/install.sh:19` — `scp` de `lmswitch`/`videoswitch`/`bootwin` para `~/.local/bin/` + `chmod +x` remoto
+- `scripts/install.sh:24` — `sudo install` do `videoswitch-reblank` em `/usr/local/bin/` e da regra em `/etc/udev/rules.d/` + `udevadm control --reload`
 - `scripts/setup-system.sh:29` — habilita `nvidia-suspend/resume/hibernate.service` (pré-requisito do `lmswitch sleep`)
 - `scripts/setup-system.sh:33` — instala `systemd/99-wol.yaml` em `/etc/netplan/` + `netplan apply`
 - `scripts/setup-system.sh:50` — instala `gpu-guard` em `~/.local/bin/`, a unit em `~/.config/systemd/user/` e faz `enable --now`
@@ -123,7 +126,7 @@ Claude Code cloud monta um briefing autocontido → `anc-delegate preflight` gar
 - **Mesma porta `1234` nos cinco presets.** Não é 1234/1235/1236 — `Conflicts=` já garante exclusão mútua, então manter a porta fixa evita que qualquer cliente precise trocar de URL ao trocar de modelo.
 - **KV cache assimétrico (K≠V) causa fallback catastrófico no Qwen3.6-27B** — testado e reproduzido: cai para ~1 tok/s. Por isso `llama-qwen36.service` usa `q8_0` em ambos; nunca reduzir só um dos dois lados sem testar de novo.
 - **`nvidia-smi` não expõe a temperatura do conector 12VHPWR.** `gpu-guard` é proxy temp+throttle (die temp), não uma medição direta do plug — limitação consciente, documentada em `benchmarks/TUNING.md` §thermal.
-- **`videoswitch` não foi validado fisicamente** — não se sabe se o nível 4 (DPMS power off) realmente corta o sinal nos monitores via `nvidia-drm` fbdev, ou só faz blank lógico. Se necessário, considerar fallback `setterm`/`vbetool`.
+- **`videoswitch off` corta o sinal de verdade** (validado fisicamente em 2026-11-02: os conectores vão a `dpms=Off` e os monitores apagam), **mas o hotplug desfaz**: o monitor DisplayPort, ao entrar em sono profundo, derruba o HPD; o `nvidia-drm` vê hotplug, o fbcon refaz o modeset e religa a saída (medido: 11 s e ~160 s depois do `off`, com `nv_drm_handle_hotplug_event` no `dmesg`). Por isso existe o `videoswitch-reblank` (regra udev). Sintoma de regressão: `make video-status` mostra `last set: off` mas `cat /sys/class/drm/card2-*/dpms` dá `On` num conector `connected`; o helper loga em `journalctl -t videoswitch-reblank`.
 - **Caminho absoluto obrigatório nos aliases SSH do Mac** (`/home/lucas/.local/bin/lmswitch`, não `lmswitch` via `$PATH`) — sessões SSH não-interativas não carregam o `PATH` customizado do shell interativo.
 - **`bootwin` é one-shot por design** — o firmware UEFI consome o `BootNext` no boot seguinte e volta ao `BootOrder` default (Ubuntu). Não há necessidade de "desarmar" depois.
 - **`gla` (Mac-side) usa mutex de processo via `lsof`/`kill`, não systemd** — não há `Conflicts=` equivalente no macOS; a exclusão mútua entre `llama.cpp` (porta 1235) e MLX (porta 1236) é garantida manualmente pelo script antes de cada start (`_mutex()` em `clients/glaurung-llm/gla:47`).

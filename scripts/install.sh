@@ -21,6 +21,13 @@ scp "$REPO_DIR"/bin/lmswitch "$REPO_DIR"/bin/videoswitch "$REPO_DIR"/bin/bootwin
   "$REMOTE":/home/lucas/.local/bin/
 ssh "$REMOTE" 'chmod +x /home/lucas/.local/bin/lmswitch /home/lucas/.local/bin/videoswitch /home/lucas/.local/bin/bootwin'
 
+echo "→ Installing videoswitch-reblank + udev rule (keeps video off across DRM hotplug)..."
+scp "$REPO_DIR"/bin/videoswitch-reblank "$REPO_DIR"/systemd/90-videoswitch-reblank.rules "$REMOTE":/tmp/
+ssh "$REMOTE" 'sudo install -m 0755 -o root -g root /tmp/videoswitch-reblank /usr/local/bin/videoswitch-reblank \
+  && sudo install -m 0644 -o root -g root /tmp/90-videoswitch-reblank.rules /etc/udev/rules.d/90-videoswitch-reblank.rules \
+  && sudo udevadm control --reload \
+  && rm -f /tmp/videoswitch-reblank /tmp/90-videoswitch-reblank.rules'
+
 echo "→ Reloading systemd..."
 ssh "$REMOTE" 'systemctl --user daemon-reload'
 

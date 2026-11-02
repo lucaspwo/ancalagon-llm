@@ -21,7 +21,7 @@ Environment=COLI_ALLOW_INSECURE_BIND=1
 # Host guard (anti DNS-rebinding) do Colibri: sem isto so aceita Host=localhost e responde 403 a
 # qualquer cliente remoto (opencode do Mac, gateway). Lista explicita em vez de '*' para manter o
 # guard contra pagina maliciosa no navegador. Acrescente aqui o nome/IP que o cliente usar na URL.
-Environment=COLI_ALLOWED_HOSTS=ancalagon-ubuntu,192.168.1.8
+Environment=COLI_ALLOWED_HOSTS=ancalagon-ubuntu,ancalagon.local
 ExecStart=/home/lucas/git/colibri/.venv/bin/python3 /home/lucas/git/colibri/c/coli serve --model /mnt/black/colibri/qwen36_i4_gs64 --host 0.0.0.0 --port 1234 --auto-tier --cap 256 --gpu 0
 Restart=on-failure
 RestartSec=3

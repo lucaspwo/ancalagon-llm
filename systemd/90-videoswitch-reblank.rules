@@ -1,0 +1,4 @@
+# Reapaga o vídeo quando um hotplug DRM o religa depois de `videoswitch off` (ver bin/videoswitch-reblank).
+# O helper não faz nada se o último comando foi `on` ou se nunca houve `off` neste boot.
+# Instalado em /etc/udev/rules.d/ por `make install`.
+ACTION=="change", SUBSYSTEM=="drm", KERNEL=="card[0-9]*", ENV{HOTPLUG}=="1", RUN+="/usr/local/bin/videoswitch-reblank"
