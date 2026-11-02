@@ -549,13 +549,15 @@ explorar (ver `docs/superpowers` se um plano formal for aberto depois).
 ### Config adotada
 
 ```
-COLI_CUDA=1 COLI_GPUS=0 CUDA_EXPERT_GB=auto OMP_NUM_THREADS=6 OMP_WAIT_POLICY=ACTIVE
-OMP_PROC_BIND=close COLI_ALLOW_INSECURE_BIND=1
+COLI_CUDA=1 COLI_GPUS=0 CUDA_EXPERT_GB=auto OMP_NUM_THREADS=6 OMP_WAIT_POLICY=PASSIVE
+OMP_PROC_BIND=close COLI_ALLOW_INSECURE_BIND=1 COLI_ALLOWED_HOSTS=ancalagon-ubuntu,192.168.1.8
 coli serve --model /mnt/black/colibri/qwen36_i4_gs64 --host 0.0.0.0 --port 1234 \
   --auto-tier --cap 256 --gpu 0
 ```
 
 **Fonte de verdade é o `ExecStart=`/`Environment=` de [`systemd/colibri-qwen36.service`](../systemd/colibri-qwen36.service)**, não este texto.
+`OMP_WAIT_POLICY` era `ACTIVE` até 2026-11-02 e virou `PASSIVE`; `COLI_ALLOWED_HOSTS` entrou na mesma
+data (ver §17).
 
 ## 16. Janela de atualização — faixa segura + kernel 6.8.0-147 + CUDA 13.4.3 (2026-10-16)
 
@@ -614,3 +616,100 @@ cinco presets.
   **Compare o Colibri só contra números do mesmo script.** O threshold de 19 tok/s continua valendo.
 - **Coder no primeiro run pós-boot oscila** (62 → 88 tok/s em runs consecutivos na tentativa
   descartada desta janela) — daí 4 runs com o 1º descartado, e o coder por último na ordem.
+
+## 17. Janela de atualização — faixa segura + driver 615.71.10; Colibri sob opencode (2026-11-02)
+
+**Estado de partida:** kernel `6.8.0-147`, driver `nvidia-open` `615.71.09`, CUDA 13.4.3, 88 holds.
+Nenhum kernel nem pacote CUDA novo disponível.
+
+### O que mudou
+
+| Faixa | Pacotes | Reboot |
+|---|---|---|
+| Segura (`apt-get upgrade`, holds intactos) | 31 — `liblzma5`/`xz-utils`, `zlib1g`, `ca-certificates`, glib 2.80.0-6ubuntu3.**10**, ghostscript, git 2.43.0-1ubuntu7.**4**, libnss3, libprotobuf, python3-jwt, snapd 2.**77.1**, tmux, xserver-xorg-core, cloud-init, ubuntu-pro-client 38 + **tailscale 1.104.1 → 1.104.4** (maioria `noble-security`) | não |
+| Driver (held → unhold → re-hold) | `nvidia-open` e companhia (19 pkgs) `615.71.09` → **`615.71.10`** + `dkms` 3.4.3 → 3.4.4 | sim |
+
+O driver **está** na cadeia `ldd` do `llama-server` (`libcuda.so.1` vem de `libnvidia-compute`), daí o
+A/B. O DKMS construiu `nvidia/615.71.10` para os 4 kernels e **autoassinou** pela MOK: o `sig_key` do
+módulo do `-147` (`6A:55:41…`) bateu com o serial de `MOK.der` e a chave seguia enrolled, conferido
+**antes** do reboot. Pós-reboot: Secure Boot enabled, 4 módulos `nvidia` carregados, `nvidia-smi` em
+615.71.10. `.deb` de rollback do 615.71.09 (19 pacotes, 322 MB) em `~/nvidia-rollback/` no Anc, com a
+lista em `~/nvidia-rollback/PKGS`. O re-hold voltou a 88 holds, com 0 pendências.
+
+### A/B (`scripts/bench-presets.py`, mesmo método do §16)
+
+Antes = 615.71.09, uptime ~3 min, load 0.65; depois = 615.71.10, uptime 3 min, load 0.08.
+
+| Preset | decode antes | decode depois | Δ | prefill antes | prefill depois | VRAM |
+|---|---|---|---|---|---|---|
+| coder | 88.94 (88.81-89.00) | **89.14** (89.12-89.15) | +0.2% | 1785 | 1821 | 15174 MiB |
+| qwen36 TQ3 | 39.73 (39.72-39.74) | **39.72** (39.72-39.72) | 0.0% | 1339 | 1337 | 15038 MiB |
+| qwen38 | 40.09 (40.08-40.11) | **40.07** (40.06-40.09) | 0.0% | 1499 | 1497 | 14936 MiB |
+| gemma4 | 82.98 (81.09-85.82) | **84.73** (83.54-86.36) | +2.1% | 2112 | 2108 | 13916 MiB |
+| colibri | 36.03 (35.10-36.86) | **36.20** (35.61-36.89) | +0.5% | — | — | 14154 MiB |
+
+**Sem regressão.** Ranges sobrepostos em todos os presets; VRAM idêntica.
+
+### Opencode do Mac direto na `:1234` (sem o `llm-gateway`)
+
+Tarefa: corrigir um `- 1` sobrando em `calc.py` e rodar `python3 calc.py` (exige tools read/edit/bash).
+Config: provider `@ai-sdk/openai-compatible` com `baseURL` `http://ancalagon-ubuntu:1234/v1`, como
+`opencode.json` de projeto no diretório de teste.
+
+| Preset | Resultado | Tempo |
+|---|---|---|
+| coder | ✅ corrigiu e rodou (`4.0`) | 17 s |
+| qwen36 | ✅ | 255 s (parte presa no cliente, ver armadilhas) |
+| qwen38 | ✅ | 32 s |
+| gemma4 | ✅ | 14 s |
+| colibri | ❌ inviável para uso agêntico (abaixo) | — |
+
+**Colibri não serve para o opencode**, por três motivos em cascata:
+
+1. **403 para qualquer cliente remoto.** O `coli serve` tem um host guard anti-DNS-rebinding que só
+   aceita `Host` = loopback/bind address. Até hoje o preset **só tinha sido usado via localhost** (os
+   benchmarks rodam no Anc; o gateway não anuncia o colibri). Corrigido com
+   `COLI_ALLOWED_HOSTS=ancalagon-ubuntu,192.168.1.8`. É uma lista explícita, não `'*'`, para manter o
+   guard contra uma página maliciosa no navegador do Mac. Quem usar outro nome/IP na URL precisa
+   entrar na lista.
+2. **Sem tool calling nativo:** `Tool use is not wired up for the qwen36 engine yet`.
+   `COLI_TOOL_FALLBACK=1` (tools injetadas no prompt) passa desse erro, mas…
+3. **…o contexto padrão é 8192** (o system prompt + tools do opencode dão ~13.7K tokens) e o
+   **prefill é ~36 tok/s** (2010 tokens em 56 s, medido local). `--ctx 32768` cabe sem tirar experts da
+   VRAM (7142 residentes nos dois casos), mas **subiu o swap de 1.7 para 5.2 GB** e derrubou o prefill
+   para ~21 tok/s. Um turno de 14K tokens levaria de 6 a 11 min. Revertidos `--ctx` e
+   `COLI_TOOL_FALLBACK`; o Colibri fica como preset de chat curto.
+
+### `OMP_WAIT_POLICY`: ACTIVE → PASSIVE (decisão do Lucas, 2026-11-02)
+
+Com `ACTIVE`, o worker `qwen36 256` ficava a **~500% de CPU parado** (6 threads OpenMP em spin-wait,
+GPU em 0%, nenhuma conexão aberta) enquanto o preset estivesse de pé. Esse custo de idle existia desde
+o §15 e nunca tinha sido medido.
+
+| `OMP_WAIT_POLICY` | decode (3 runs) | CPU parado |
+|---|---|---|
+| ACTIVE | 36.20 (35.61-36.89) | ~500% |
+| **PASSIVE** | **33.57** (32.98-34.21) | **0.3%** |
+
+−7.3% de decode (ranges não se sobrepõem, então é real), ainda bem acima do piso de 19 tok/s.
+Trocado porque o preset passa a maior parte do tempo ocioso entre requests.
+
+### Armadilhas
+
+- **Colibri é híbrido: CPU alta durante a inferência é esperado.** Com o tier CUDA ativo, os ~30% dos
+  experts fora da VRAM rodam na CPU. No prefill do opencode: GPU 39-74% / 120-190 W **e** worker a
+  210% de CPU. "Só CPU" de verdade é o sintoma do §15 (`[qtier] ... tier disabled`) ou da MOK
+  (`project_ancalagon_mok_apagada`): confira `nvidia-smi --query-gpu=memory.used` (~14 GB) antes de
+  concluir.
+- **A RAM do Anc fica no limite com o Colibri:** 29.2 GB RES de 31 GB, 0 disponível, swap em uso.
+  Qualquer coisa que aumente a memória dele (`--ctx` maior) vai para o swap.
+- **O Colibri atende um request por vez e não cancela quando o cliente cai.** Matar o opencode deixa
+  os requests já aceitos rodando até o fim, e um request novo recebe **429** nesse meio-tempo. Para
+  limpar, `lmswitch off && lmswitch colibri`.
+- **opencode 2.2.5: `opencode run --standalone` travou** logo após as migrações do banco, sem enviar
+  nenhum request. Sem `--standalone`, o `opencode serve --service` em background às vezes trava o run
+  seguinte (o mesmo sintoma: zero requests no servidor). Contorno: `pkill -f "opencode serve"` antes
+  do run. Antes de culpar o Anc, confira no log do servidor se chegou algum `POST`.
+- **`mnt-fury.mount` falha no boot** (`ntfs3: volume is dirty and "force" flag is not set`) desde
+  pelo menos 2 boots antes desta janela. É a partição NTFS `Fury` (Kingston FURY 2 TB, lado Windows),
+  e não tem relação com o upgrade. Fix: `chkdsk` pelo Windows.

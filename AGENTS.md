@@ -11,7 +11,7 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 | `systemd/llama-qwen36.service` | Unit — Qwen3.6-27B-TQ3_4S (fork `turbo-tan/llama.cpp-tq3`), KV q8/q8, ctx 40960 |
 | `systemd/llama-qwen38.service` | Unit — Qwen3.8-27B-IQ3_M (fork `turbo-tan/llama.cpp-tq3`), KV q8/q8, ctx 40960 |
 | `systemd/llama-gemma4.service` | Unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 8`, KV q4/q4, ctx 98304 |
-| `systemd/colibri-qwen36.service` | Unit — Qwen3.6-35B-A3B MoE via the [Colibrì](https://github.com/JustVugg/colibri) engine (not llama.cpp), CUDA VRAM expert tier, `--auto-tier --cap 256`, `COLI_ALLOW_INSECURE_BIND=1` |
+| `systemd/colibri-qwen36.service` | Unit — Qwen3.6-35B-A3B MoE via the [Colibrì](https://github.com/JustVugg/colibri) engine (not llama.cpp), CUDA VRAM expert tier, `--auto-tier --cap 256`, `COLI_ALLOW_INSECURE_BIND=1`, `COLI_ALLOWED_HOSTS` (Host guard → 403 otherwise), `OMP_WAIT_POLICY=PASSIVE` |
 | `systemd/gpu-guard.service` | Unit — thermal watchdog, `enabled` (persistent, unlike the four services above) |
 | `systemd/usb-port-guard.service` | System unit — disables the dead USB port11 on boot and on every resume (see `docs/usb-port11.md`) |
 | `systemd/99-wol.yaml` | netplan override — arms Wake-on-LAN on `eno1` |

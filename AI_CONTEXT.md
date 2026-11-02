@@ -93,7 +93,8 @@ make status
 #   qwen38: <25 tok/s = regressão
 #   gemma4: <40 tok/s = regressão
 #   colibri: <19 tok/s = regressão (medido 27,4 tok/s estável em 2026-09-27, tier CUDA
-#            com 7142/10240 experts residentes em VRAM; piso = 70% do medido)
+#            com 7142/10240 experts residentes em VRAM; piso = 70% do medido. Com o
+#            bench-presets.py e OMP_WAIT_POLICY=PASSIVE dá ~33,6 tok/s — TUNING.md §17)
 ```
 
 ## Próximos passos potenciais
