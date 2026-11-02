@@ -713,3 +713,26 @@ Trocado porque o preset passa a maior parte do tempo ocioso entre requests.
 - **`mnt-fury.mount` falha no boot** (`ntfs3: volume is dirty and "force" flag is not set`) desde
   pelo menos 2 boots antes desta janela. É a partição NTFS `Fury` (Kingston FURY 2 TB, lado Windows),
   e não tem relação com o upgrade. Fix: `chkdsk` pelo Windows.
+
+### gpu-unlock (tensor cores FP16/BF16→FP32 a 2×): teto medido antes de instalar
+
+Avaliados [Zagitta/gpu-unlock](https://github.com/Zagitta/gpu-unlock) e o fork
+[JustAResearcher/gpu-unlock-ada](https://github.com/JustAResearcher/gpu-unlock-ada). O fork tem o
+`10de:2705` (este 4070 Ti SUPER, AD103) testado em **uma** placa, atrás de opt-in
+(`gpu_unlock.ad103_experimental=1` + PCI exato). O relatório do 2705 dobra **só** FP16/BF16 com
+acumulação FP32; **INT8 (379.5 TOP/s), dp4a e FP16→FP16 ficam iguais**. É um módulo de kernel que roda
+um payload no SEC2 antes do driver, e o primeiro teste pede corte de energia na tomada.
+
+Antes de instalar, o teto foi medido com `nsys` (CUDA 13.4): o `ExecStart=` de cada preset rodou sob
+o profiler, com 1 prefill de ~14.5K tokens (o tamanho de um turno do opencode), `cache_prompt:false`.
+
+| Preset | prefill | tempo GPU | MMQ (INT8, não muda) | flash-attn (FP16 mma, candidato) | teto do ganho no prefill |
+|---|---|---|---|---|---|
+| coder | 1960 tok/s, 7.39 s | 2.93 s (o resto é CPU: `--n-cpu-moe 16`) | 54% | 860 ms (29% da GPU) | **≤ 5.8%** |
+| qwen36 | 1367 tok/s, 10.60 s | 10.61 s | 66% | 587 ms (5.5%) | **≤ 2.8%** |
+
+O teto assume o kernel de flash attention inteiro rodando 2× mais rápido, o que é otimista. Decode é
+memory-bound e fica igual. O qwen38 tem a mesma arquitetura do qwen36 (`qwen35`, DeltaNet híbrido);
+o gemma4 não foi medido. **Recomendação (2026-11-02): não instalar**. Ganho de poucos % em prefill não paga o risco de um módulo de
+kernel experimental validado em uma placa. Reabrir só se um preset passar a usar pesos FP16/BF16
+(cuBLAS com acumulação FP32) ou se o llama.cpp mudar o MMQ para outro caminho.
