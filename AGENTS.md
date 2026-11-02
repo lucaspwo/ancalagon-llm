@@ -6,7 +6,7 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 
 | Path | Purpose |
 |---|---|
-| `Makefile` | Entry points: `install`, `install-system`, `install-gla`, `install-skill`, `wake`, `status`, `coder`, `qwen36`, `qwen38`, `gemma4`, `off`, `sleep`, `logs`, `video-{off,on,status}`, `bootwin{,-dry}` |
+| `Makefile` | Entry points: `install`, `install-system`, `install-gla`, `install-skill`, `install-gateway-local`, `uninstall-gateway-local`, `wake`, `status`, `coder`, `qwen36`, `qwen38`, `gemma4`, `off`, `sleep`, `logs`, `video-{off,on,status}`, `bootwin{,-dry}` |
 | `systemd/llama-coder.service` | Unit — Qwen3-Coder-30B MoE, `--n-cpu-moe 16`, KV q4/q4, ctx 98304 |
 | `systemd/llama-qwen36.service` | Unit — Qwen3.6-27B-TQ3_4S (fork `turbo-tan/llama.cpp-tq3`), KV q8/q8, ctx 40960 |
 | `systemd/llama-qwen38.service` | Unit — Qwen3.8-27B-IQ3_M (fork `turbo-tan/llama.cpp-tq3`), KV q8/q8, ctx 40960 |
@@ -74,7 +74,7 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 - Build: none — `llama-server` (upstream + TQ3 fork) and the Colibrì `qwen36` engine are compiled manually on Ancalagon, outside this repo's scope (`scripts/build-llama.sh` is a reference only)
 - Test: none — no automated suite. Manual validation via `make status` + a fixed benchmark prompt (`scripts/bench-presets.py`) against the regression thresholds in `AI_CONTEXT.md` § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s, colibri <19 tok/s = regression)
 - Lint: `shellcheck bin/*` (manual, not hooked into CI — there is no CI in this repo)
-- Deploy: `make install` (units + wrappers) · `make install-system` (one-time host prerequisites) · `make install-gla` / `make install-skill` (Mac-side components)
+- Deploy: `make install` (units + wrappers) · `make install-system` (one-time host prerequisites) · `make install-gla` / `make install-skill` / `make install-gateway-local` (Mac-side components; the last one is a LaunchAgent running the homelab llm-gateway on 127.0.0.1:8090 while Scatha is down)
 - Run: `make coder` / `make qwen36` / `make qwen38` / `make gemma4` / `make colibri` (start a preset) · `make status` (health) · `make logs` (tail journal) · `make off` / `make sleep` (stop / suspend)
 
 ## Conventions & constraints

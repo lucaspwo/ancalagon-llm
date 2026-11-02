@@ -1,6 +1,6 @@
 REMOTE ?= Anc_U-T
 
-.PHONY: install install-system install-gla install-skill wake status coder qwen36 qwen38 gemma4 colibri off sleep logs video-off video-on video-status bootwin bootwin-dry
+.PHONY: install install-system install-gla install-skill install-gateway-local uninstall-gateway-local wake status coder qwen36 qwen38 gemma4 colibri off sleep logs video-off video-on video-status bootwin bootwin-dry
 
 install:
 	@bash scripts/install.sh
@@ -23,6 +23,18 @@ install-skill:
 	@chmod +x $(CURDIR)/skills/delegando-ancalagon/anc-delegate
 	@ln -sfn $(CURDIR)/skills/delegando-ancalagon $(HOME)/.claude/skills/delegando-ancalagon
 	@echo "installed: $(HOME)/.claude/skills/delegando-ancalagon -> $(CURDIR)/skills/delegando-ancalagon"
+
+install-gateway-local:
+	@chmod +x $(CURDIR)/clients/opencode/llm-gateway-local.sh
+	@sed -e 's|__REPO__|$(CURDIR)|g' -e 's|__HOME__|$(HOME)|g' clients/opencode/com.lucaspwo.llm-gateway-local.plist > $(HOME)/Library/LaunchAgents/com.lucaspwo.llm-gateway-local.plist
+	@launchctl bootout gui/$$(id -u)/com.lucaspwo.llm-gateway-local 2>/dev/null || true
+	@launchctl bootstrap gui/$$(id -u) $(HOME)/Library/LaunchAgents/com.lucaspwo.llm-gateway-local.plist
+	@echo "llm-gateway local em http://127.0.0.1:8090/v1 (log: ~/Library/Logs/llm-gateway-local.log)"
+
+uninstall-gateway-local:
+	@launchctl bootout gui/$$(id -u)/com.lucaspwo.llm-gateway-local 2>/dev/null || true
+	@rm -f $(HOME)/Library/LaunchAgents/com.lucaspwo.llm-gateway-local.plist
+	@echo "llm-gateway local removido"
 
 wake:
 	@wakeonlan 10:7C:61:45:D8:38

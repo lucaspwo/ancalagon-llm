@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Template: `make install-gateway-local` troca __REPO__ e __HOME__ e copia para ~/Library/LaunchAgents/ -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lucaspwo.llm-gateway-local</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/clients/opencode/llm-gateway-local.sh</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/llm-gateway-local.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/llm-gateway-local.log</string>
+</dict>
+</plist>

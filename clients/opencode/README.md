@@ -29,6 +29,28 @@ que detecta o preset ativo. Um preset novo aqui (`systemd/llama-*.service` + `bi
 que não entrar em `ANC_MODELS` fica invisível ao gateway: ele passa a servir o modelo
 carregado sob **qualquer** alias pedido, sem erro. Ver `homelab/compose/llm-gateway/README.md`.
 
+## Scatha fora do ar: o mesmo gateway rodando no Mac
+
+O `llm-gateway` é Python puro (`aiohttp`) e só precisa de SSH e HTTP até o Ancalagon, então roda no
+próprio Mac via Tailscale. O comportamento continua o mesmo: escolher `/model ancalagon/<preset>` sobe
+ou troca o preset sozinho.
+
+```bash
+make install-gateway-local    # LaunchAgent: 127.0.0.1:8090, sobe no login, KeepAlive
+# no ~/.config/opencode/opencode.json: provider.ancalagon.options.baseURL = http://127.0.0.1:8090/v1
+make uninstall-gateway-local  # ao voltar para o gateway do Scatha (e restaurar http://llm.home.lab/v1)
+```
+
+Wrapper: [`llm-gateway-local.sh`](llm-gateway-local.sh), que usa a `.venv` e o código de
+`~/git/homelab/compose/llm-gateway` (`LLM_GATEWAY_DIR` sobrescreve). Log em
+`~/Library/Logs/llm-gateway-local.log`. Validado em 2026-11-02: com nenhum preset ativo, o `coder` subiu
+sozinho e o opencode corrigiu e rodou um script; a troca para `gemma4` funcionou a quente.
+
+Limitações: o WoL é broadcast na LAN, então só acorda o Ancalagon suspenso se o Mac estiver na mesma
+rede (via Tailscale ele precisa estar acordado). E não deixe os dois gateways em uso ao mesmo tempo:
+cada um serializa as próprias trocas, mas não as do outro, então dois clientes pedindo modelos
+diferentes ficam trocando de preset entre si.
+
 ## `opencode.json` deste diretório — fallback direto ao Ancalagon
 
 Uso quando o Scatha/gateway estiver fora do ar, ou para bypassar o gateway de propósito.
