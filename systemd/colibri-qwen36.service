@@ -1,6 +1,6 @@
 [Unit]
 Description=Colibri server - Qwen3.6-35B-A3B MoE (CUDA VRAM tier, cap=256 full residency)
-Conflicts=llama-coder.service llama-qwen36.service llama-qwen38.service llama-gemma4.service lmstudio.service
+Conflicts=llama-coder.service llama-qwen36.service llama-qwen38.service llama-gemma4.service lmstudio.service llama-flint.service
 After=network-online.target
 Wants=network-online.target
 

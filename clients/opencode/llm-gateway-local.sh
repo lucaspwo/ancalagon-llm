@@ -11,7 +11,7 @@ cd "$GW_DIR"
 
 # Defaults do app/config.py ja apontam para os nos MagicDNS (ancalagon-ubuntu / ancalagon).
 export ANC_SSH_KEY="${ANC_SSH_KEY:-$HOME/.ssh/id_ed25519}"
-export ANC_MODELS="${ANC_MODELS:-coder,qwen36,qwen38,gemma4}"
+export ANC_MODELS="${ANC_MODELS:-coder,qwen36,qwen38,gemma4,flint}"
 export LISTEN_PORT="${LISTEN_PORT:-8090}"
 
 # O __main__.py do gateway binda 0.0.0.0; aqui so o proprio Mac precisa acessar.

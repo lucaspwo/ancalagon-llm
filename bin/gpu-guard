@@ -20,7 +20,7 @@ log() { printf '%s gpu-guard: %s\n' "$(date -Is)" "$*"; }
 crit_since=0
 
 active_service() {
-  for s in llama-coder llama-qwen36 llama-qwen38 llama-gemma4 colibri-qwen36; do
+  for s in llama-coder llama-qwen36 llama-qwen38 llama-gemma4 llama-flint colibri-qwen36; do
     systemctl --user is-active --quiet "$s.service" && { echo "$s"; return; }
   done
 }

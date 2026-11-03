@@ -1,6 +1,6 @@
 #!/bin/bash
 # lmswitch — switch between llama.cpp/colibri server presets on Ancalagon-Ubuntu.
-# All five services bind :1234 and are mutually exclusive (single 16GB GPU).
+# All six services bind :1234 and are mutually exclusive (single 16GB GPU).
 set -euo pipefail
 
 PORT=1234
@@ -8,12 +8,13 @@ COMMAND="${1:-status}"
 
 usage() {
   cat <<EOF
-Usage: lmswitch {coder|qwen36|qwen38|gemma4|colibri|off|sleep|status|logs}
+Usage: lmswitch {coder|qwen36|qwen38|gemma4|flint|colibri|off|sleep|status|logs}
 
   coder    — start upstream llama.cpp with Qwen3-Coder-30B-A3B (MoE, ncmoe=16)
   qwen36   — start TQ3 fork with Qwen3.6-27B-TQ3_4S (100% GPU)
   qwen38   — start TQ3 fork with Qwen3.8-27B-IQ3_M (100% GPU)
   gemma4   — start upstream llama.cpp with Gemma 4 26B-A4B-it (MoE, ncmoe=8)
+  flint    — start upstream llama.cpp with Recursive Flint 40B-A2.5B (MoE, ncmoe=24, ctx 128K)
   colibri  — start Colibri engine with Qwen3.6-35B-A3B (CUDA VRAM tier, ~70% experts resident)
   off      — stop any active llama/colibri server
   sleep    — stop services and suspend the system (wake via WoL)
@@ -26,8 +27,9 @@ EOF
 wait_ready() {
   local svc="$1"
   local label="$2"
+  local timeout="${3:-90}"
   printf 'Starting %s ' "$label" >&2
-  for _ in $(seq 1 90); do
+  for _ in $(seq 1 "$timeout"); do
     if ! systemctl --user is-active --quiet "$svc"; then
       printf '\nService %s is not active; aborting wait.\n' "$svc" >&2
       systemctl --user --no-pager status "$svc" | tail -15 >&2
@@ -41,11 +43,11 @@ wait_ready() {
     printf '.' >&2
     sleep 1
   done
-  printf '\nTimed out after 90s; check: journalctl --user -u %s -n 50\n' "$svc" >&2
+  printf '\nTimed out after %ss; check: journalctl --user -u %s -n 50\n' "$timeout" "$svc" >&2
   return 1
 }
 
-ALL_SERVICES=(llama-coder llama-qwen36 llama-qwen38 llama-gemma4 colibri-qwen36)
+ALL_SERVICES=(llama-coder llama-qwen36 llama-qwen38 llama-gemma4 llama-flint colibri-qwen36)
 
 stop_all() {
   for svc in "${ALL_SERVICES[@]}"; do
@@ -73,6 +75,12 @@ case "$COMMAND" in
     stop_all
     systemctl --user start llama-gemma4.service
     wait_ready llama-gemma4.service "gemma-4-26b (ncmoe=8)"
+    ;;
+  flint)
+    stop_all
+    systemctl --user start llama-flint.service
+    # 180s: o GGUF tem 25 GB; a carga a frio (fora do page cache) levou 75s em 2026-11-02.
+    wait_ready llama-flint.service "flint-40b-a2.5b (ncmoe=24)" 180
     ;;
   colibri|colibri36)
     stop_all

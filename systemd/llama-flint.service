@@ -1,0 +1,23 @@
+[Unit]
+Description=llama.cpp server - Recursive Flint 40B-A2.5B (MoE, UD-Q4_K_XL, n-cpu-moe=24, ctx 128K, KV q8_0)
+Conflicts=llama-coder.service llama-qwen36.service llama-qwen38.service llama-gemma4.service lmstudio.service colibri-qwen36.service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/lucas/git/llama.cpp/build/bin
+Environment=PATH=/usr/local/cuda/bin:/usr/local/bin:/usr/bin:/bin
+# Arquitetura `flint` exige llama.cpp upstream >= a37cc461 (PR #30928); build de 2026-11-02 = b12061.
+# ncmoe=24: menor valor que carrega com folga (20 dá OOM; cada camada a menos custa ~470 MiB de
+# VRAM). Só 14 das 49 camadas têm atenção completa (o resto é janela deslizante de 513 tokens),
+# então 128K de KV q8_0 cabem em ~1 GB. Sweep em benchmarks/TUNING.md §18.
+ExecStart=/home/lucas/git/llama.cpp/build/bin/llama-server -m /home/lucas/models/gguf/flint-UD-Q4_K_XL.gguf --host 0.0.0.0 --port 1234 -c 131072 -ngl 99 -fa 1 -ctk q8_0 -ctv q8_0 -t 12 --n-cpu-moe 24 --jinja
+Restart=on-failure
+RestartSec=3
+KillMode=mixed
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target

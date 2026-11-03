@@ -1,6 +1,6 @@
 REMOTE ?= Anc_U-T
 
-.PHONY: install install-system install-gla install-skill install-gateway-local uninstall-gateway-local wake status coder qwen36 qwen38 gemma4 colibri off sleep logs video-off video-on video-status bootwin bootwin-dry
+.PHONY: install install-system install-gla install-skill install-gateway-local uninstall-gateway-local wake status coder qwen36 qwen38 gemma4 flint colibri off sleep logs video-off video-on video-status bootwin bootwin-dry
 
 install:
 	@bash scripts/install.sh
@@ -53,6 +53,9 @@ qwen38:
 
 gemma4:
 	@ssh $(REMOTE) /home/lucas/.local/bin/lmswitch gemma4
+
+flint:
+	@ssh $(REMOTE) /home/lucas/.local/bin/lmswitch flint
 
 colibri:
 	@ssh $(REMOTE) /home/lucas/.local/bin/lmswitch colibri

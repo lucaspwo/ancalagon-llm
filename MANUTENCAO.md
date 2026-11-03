@@ -4,7 +4,7 @@
 
 Este repo é **infraestrutura operacional**, não uma aplicação: é o conjunto de units systemd, scripts shell e um Makefile que transformam o Ancalagon (Ubuntu Server 24.04 dual-boot, RTX 4070 Ti SUPER 16 GB) num servidor LLM local dedicado, expondo uma API OpenAI-compatível na porta `1234` via Tailscale.
 
-Cinco presets de modelo rodam como units systemd `--user` no Ancalagon: quatro via `llama.cpp` (`llama-coder`, `llama-qwen36`, `llama-qwen38`, `llama-gemma4`) e um via o engine [Colibrì](https://github.com/JustVugg/colibri) (`colibri-qwen36`, Qwen3.6-35B-A3B com tier CUDA de experts em VRAM). Todos com `Conflicts=` cruzado entre si e com `lmstudio.service` — systemd garante atomicamente que só um está ativo por vez, sem lógica manual de stop/start. `bin/lmswitch` (também no Ancalagon, deployado por este repo) é o wrapper que troca de preset e faz health-check; ele não assume `llama.cpp` — só que o preset serve `/health` e `/v1/chat/completions` em `:1234`.
+Seis presets de modelo rodam como units systemd `--user` no Ancalagon: cinco via `llama.cpp` (`llama-coder`, `llama-qwen36`, `llama-qwen38`, `llama-gemma4`, `llama-flint`) e um via o engine [Colibrì](https://github.com/JustVugg/colibri) (`colibri-qwen36`, Qwen3.6-35B-A3B com tier CUDA de experts em VRAM). Todos com `Conflicts=` cruzado entre si e com `lmstudio.service` — systemd garante atomicamente que só um está ativo por vez, sem lógica manual de stop/start. `bin/lmswitch` (também no Ancalagon, deployado por este repo) é o wrapper que troca de preset e faz health-check; ele não assume `llama.cpp` — só que o preset serve `/health` e `/v1/chat/completions` em `:1234`.
 
 Do lado do Mac (Glaurung), aliases no `.zshrc` chamam `ssh <remote> lmswitch <subcomando>` — o Makefile deste repo espelha os mesmos subcomandos como `make coder`/`make qwen36`/`make qwen38`/etc. para quem prefere rodar do checkout local. Um segundo componente Mac-side, `clients/glaurung-llm/gla`, replica a mesma UX (mutex de porta + start + troca de modelo) para rodar inferência **localmente** no Mac (llama.cpp Metal ou MLX), sem depender do Ancalagon.
 
@@ -40,12 +40,12 @@ Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Co
 
 ## Onde ficam as funções-chave
 
-- `bin/lmswitch:26` — `wait_ready()` — poll de até 90s no `/health` do service recém-iniciado, aborta se o service cair
-- `bin/lmswitch:48` — `ALL_SERVICES` + `stop_all()` — lista única dos cinco nomes de service, usada por todo case que precisa parar os outros antes de subir
-- `bin/lmswitch:56` — `case "$COMMAND" in` — dispatch dos subcomandos `coder|qwen36|qwen38|gemma4|colibri|off|sleep|status|logs`
-- `bin/lmswitch:86` — case `sleep|suspend` — para todos os services (via `stop_all`) e dispara `sudo -n systemctl suspend` destacado com `nohup … & disown` para não bloquear a sessão SSH
+- `bin/lmswitch:27` — `wait_ready()` — poll de até 90s (ou o timeout opcional do 3º argumento) no `/health` do service recém-iniciado, aborta se o service cair
+- `bin/lmswitch:50` — `ALL_SERVICES` + `stop_all()` — lista única dos seis nomes de service, usada por todo case que precisa parar os outros antes de subir
+- `bin/lmswitch:58` — `case "$COMMAND" in` — dispatch dos subcomandos `coder|qwen36|qwen38|gemma4|flint|colibri|off|sleep|status|logs` (o `flint` espera até 180 s: `wait_ready` aceita timeout opcional; o GGUF de 25 GB levou 75 s a frio)
+- `bin/lmswitch:94` — case `sleep|suspend` — para todos os services (via `stop_all`) e dispara `sudo -n systemctl suspend` destacado com `nohup … & disown` para não bloquear a sessão SSH
 - `bin/gpu-guard:12` — `WARN_TEMP`/`CRIT_TEMP` — limiares 82°C/86°C calibrados empiricamente (pico normal do die = 77°C sob 320W)
-- `bin/gpu-guard:22` — `active_service()` — descobre qual dos cinco presets está ativo (renomeada de `active_llama` em 2026-09-27 ao corrigir uma lacuna real: a lista estava presa em três nomes — coder/qwen36/gemma4 — e nunca ganhara o `qwen38`, então o watchdog térmico não conseguia cortar esse preset sob superaquecimento; corrigida junto com a entrada do `colibri-qwen36`)
+- `bin/gpu-guard:22` — `active_service()` — descobre qual dos seis presets está ativo (`llama-flint` entrou em 2026-11-02) (renomeada de `active_llama` em 2026-09-27 ao corrigir uma lacuna real: a lista estava presa em três nomes — coder/qwen36/gemma4 — e nunca ganhara o `qwen38`, então o watchdog térmico não conseguia cortar esse preset sob superaquecimento; corrigida junto com a entrada do `colibri-qwen36`)
 - `bin/gpu-guard:28` — loop principal — polling de `nvidia-smi` a cada `INTERVAL` (5s default), escalona WARN (loga) → CRIT sustentado por `HOLD` (30s) → `systemctl --user stop` do service ativo
 - `bin/videoswitch:23` — `require_fb()` — valida que `/sys/class/graphics/fb0/blank` existe antes de qualquer operação
 - `bin/videoswitch:30` — dispatch `off|on|status` — escreve em `fb0` via `sudo -n sh -c` e persiste último estado em `/run/videoswitch.state` (o driver `nvidia-drm` retorna vazio na leitura)
@@ -76,7 +76,7 @@ Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Co
 ## Fluxos de dados
 
 **Troca de preset (uso normal, do Mac):**
-`anc_lin_coder` (alias) → `ssh Anc_U-T lmswitch coder` → `bin/lmswitch:56` dispatch → `stop_all()` para os outros quatro services → `systemctl --user start llama-coder.service` → `wait_ready()` faz poll em `:1234/health` → confirma pronto.
+`anc_lin_coder` (alias) → `ssh Anc_U-T lmswitch coder` → `bin/lmswitch:58` dispatch → `stop_all()` para os outros cinco services → `systemctl --user start llama-coder.service` → `wait_ready()` faz poll em `:1234/health` → confirma pronto.
 
 **Deploy de mudança em unit/script:**
 Editar `systemd/*.service` ou `bin/*` neste repo → `make install` → `scripts/install.sh` copia via `scp` para `~/.config/systemd/user/` e `~/.local/bin/` no Ancalagon → `systemctl --user daemon-reload` remoto → `make coder`/`make qwen36`/`make qwen38`/`make gemma4`/`make colibri` para reiniciar com a nova config.
@@ -92,7 +92,7 @@ Claude Code cloud monta um briefing autocontido → `anc-delegate preflight` gar
 **Adicionar um novo preset de modelo:**
 1. Criar `systemd/<engine>-<nome>.service` seguindo o padrão dos cinco existentes: `Conflicts=` contra os outros cinco (quatro `llama-*` + `colibri-qwen36` + `lmstudio`), `Type=simple`, `ExecStart` apontando para o binário certo — não precisa ser `llama-server`; `colibri-qwen36.service` roda um engine totalmente diferente (Colibrì) e só precisa satisfazer `:1234` + `/health` + `/v1/chat/completions`.
 2. Adicionar `Conflicts=<engine>-<nome>.service` nos outros cinco `.service` existentes (systemd não infere simetria).
-3. Adicionar o nome à array `ALL_SERVICES` e o subcomando em `bin/lmswitch:56` (novo case, `stop_all` já para os outros antes de subir).
+3. Adicionar o nome à array `ALL_SERVICES` e o subcomando em `bin/lmswitch:58` (novo case, `stop_all` já para os outros antes de subir).
 4. Adicionar o `scp` do novo unit em `scripts/install.sh:14` e o target `make <nome>` no `Makefile`.
 5. Rodar `make install` e testar com `make <nome>` + `make status`.
 6. Se o preset for um engine novo (não `llama.cpp`), confirmar que `bin/gpu-guard:22` (`active_service()`) já lista o novo nome — senão o watchdog térmico não sabe cortá-lo sob superaquecimento. Esta lista **não** se autoatualiza a partir do `verbs.json`/`lmswitch`; é uma cópia manual, e por isso mesmo ficou 2 presets atrasada antes desta rodada (faltava o `qwen38`).

@@ -30,6 +30,7 @@ aliases:                          systemd --user:
   anc_lin_qwen36 ────ssh───▶      llama-qwen36.service ───┤
   anc_lin_qwen38 ────ssh───▶      llama-qwen38.service ───┤
   anc_lin_gemma4 ────ssh───▶      llama-gemma4.service ───┼─ Conflicts=
+  (make flint)   ────ssh───▶      llama-flint.service ────┤
   (make colibri) ────ssh───▶      colibri-qwen36.service ─┤  (only one up)
   anc_lin_off    ────ssh───▶      (lmstudio.service      ─┘
   anc_lin_status ────ssh───▶      + disabled)
@@ -85,6 +86,7 @@ make coder     # start Qwen3-Coder-30B (MoE, --n-cpu-moe 16, ctx 96K)
 make qwen36    # start Qwen3.6-27B-TQ3_4S (100% GPU, ctx 40K)
 make qwen38    # start Qwen3.8-27B-IQ3_M (100% GPU, ctx 40K)
 make gemma4    # start Gemma 4 26B-A4B-it (MoE, --n-cpu-moe 8, ctx 96K)
+make flint     # start Recursive Flint 40B-A2.5B (MoE, --n-cpu-moe 24, ctx 128K) — best agentic pick for opencode
 make colibri   # start Qwen3.6-35B-A3B via Colibri (CUDA VRAM tier, ~70% experts resident)
 make off       # stop whichever preset is active
 make sleep     # stop + suspend the whole machine (wake via WoL)
@@ -119,7 +121,7 @@ anc_win_restart    # from Windows → normal reboot, lands on Ubuntu (the defaul
 
 ```
 bin/                    lmswitch, gpu-guard, videoswitch, bootwin — the operational wrapper scripts
-systemd/                llama-{coder,qwen36,qwen38,gemma4}.service, colibri-qwen36.service, gpu-guard.service, 99-wol.yaml, console-setup
+systemd/                llama-{coder,qwen36,qwen38,gemma4,flint}.service, colibri-qwen36.service, gpu-guard.service, 99-wol.yaml, console-setup
 scripts/                install.sh (deploy), setup-system.sh (WoL/nvidia-suspend/console prerequisites), build-llama.sh, bench-presets.py (A/B bench)
 clients/glaurung-llm/   gla — Mac-side backend switcher (llama.cpp Metal / MLX) + TUNING.md
 clients/opencode/       opencode.json template + README for wiring opencode to Ancalagon/Glaurung backends

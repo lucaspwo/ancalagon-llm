@@ -81,7 +81,7 @@ puro; o provider direto só responde se algum service estiver ativo.
 
 ```bash
 # do Mac, via SSH (alias do .zshrc)
-anc_lin_coder    # ou anc_lin_qwen36 / anc_lin_qwen38 / anc_lin_gemma4
+anc_lin_coder    # ou anc_lin_qwen36 / anc_lin_qwen38 / anc_lin_gemma4 (flint: make flint)
 anc_lin_status   # confirma :1234 respondendo
 ```
 
@@ -158,6 +158,7 @@ opencode
 /model ancalagon/coder       # remoto, MoE 30B
 /model ancalagon/qwen36      # remoto, dense 27B TQ3
 /model ancalagon/gemma4      # remoto, MoE 26B
+/model ancalagon/flint       # remoto, MoE 40B-A2.5B, ctx 128K — o melhor agente (TUNING.md §18)
 /model glaurung/qwen36       # local llama.cpp, dense 27B Q4_K_M Metal (raciocínio, ~12 tok/s)
 /model glaurung/gemma4       # local llama.cpp, MoE 26B-A4B Q4_K_M Metal (~55 tok/s, ctx 80K)
 /model glaurung-mlx/mlx-community/Qwen3.6-27B-4bit                            # local MLX dense (~13.7 tok/s)
@@ -173,6 +174,7 @@ O `name` do model em `opencode.json` deve casar com o que está atualmente carre
 | ancalagon/coder          | 98 304  | 32 768 | Casamento com `-c 98304` do `llama-coder.service`   |
 | ancalagon/qwen36         | 40 960  | 16 384 | Casamento com `-c 40960` do `llama-qwen36.service`  |
 | ancalagon/gemma4         | 98 304  | 32 768 | Casamento com `-c 98304` do `llama-gemma4.service`  |
+| ancalagon/flint          | 131 072 | 32 768 | Casamento com `-c 131072` do `llama-flint.service`  |
 | **glaurung/qwen36**      | **49 152** | **16 384** | **llama.cpp Metal — M4 Pro 24 GB; teto antes de swap. Ver TUNING.md** |
 | **glaurung/gemma4**      | **81 920** | **16 384** | **llama.cpp Metal — MoE 4B ativos, ctx maior viável. Ver TUNING.md** |
 | **glaurung-mlx/mlx-community/Qwen3.6-27B-4bit** | 49 152 | 16 384 | MLX (Apple-native) — Qwen3.6 dense; +37% vs llama.cpp |
@@ -191,7 +193,7 @@ Se mexer em `-c` nos `.service` (Ancalagon) ou no comando manual (Glaurung), aju
 | Raciocínio formal / matemática crítica | `glaurung/qwen36` (llama.cpp Q4_K_M — K-quants preserva precisão melhor que MLX 4-bit uniforme) |
 | Trocar entre Qwen e Gemma sem reiniciar server | `glaurung-mlx/*` (single server, dynamic load) |
 | Métricas precisas (`timings.predicted_per_second`) | `glaurung/*` (llama.cpp expõe nativo; MLX só tem `usage`) |
-| Tarefa pesada (refactor grande, ctx >50K, prompts longos) | `ancalagon/coder` ou `ancalagon/gemma4` (3× tok/s do Mac, ctx 96K) |
+| Tarefa pesada (refactor grande, ctx >50K, prompts longos) | `ancalagon/flint` (ctx 128K, tool calling nativo; resolveu 2/2 a tarefa de 9 testes em que o `coder` estourou 600 s) — `coder`/`gemma4` como alternativa |
 
 ## Por que opencode e não pi.dev
 

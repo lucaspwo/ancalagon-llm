@@ -26,6 +26,7 @@ aliases .zshrc                         systemd --user (Conflicts= entre si):
   anc_lin_qwen36 ──ssh──▶              llama-qwen36.service    (llama.cpp fork TQ3)
   anc_lin_qwen38 ──ssh──▶              llama-qwen38.service    (llama.cpp fork TQ3)
   anc_lin_gemma4 ──ssh──▶              llama-gemma4.service    (llama.cpp upstream)
+  make flint     ──ssh──▶              llama-flint.service     (llama.cpp upstream)
   make colibri   ──ssh──▶              colibri-qwen36.service  (engine Colibri)
   anc_lin_off    ──ssh──▶              lmstudio.service      (DISABLED)
   srl-coder                                 │
@@ -45,15 +46,16 @@ Cinco services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio s
 | `systemd/llama-qwen36.service` | user unit — Qwen3.6-27B TQ3_4S (fork), KV q8/q8, ctx 40K | idem |
 | `systemd/llama-qwen38.service` | user unit — Qwen3.8-27B IQ3_M (fork), KV q8/q8, ctx 40K | idem |
 | `systemd/llama-gemma4.service` | user unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 8`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
+| `systemd/llama-flint.service` | user unit — Recursive Flint 40B-A2.5B MoE UD-Q4_K_XL, `--n-cpu-moe 24`, KV q8/q8, ctx 128K | idem |
 | `systemd/colibri-qwen36.service` | user unit — Qwen3.6-35B-A3B via engine Colibri, tier CUDA (`--auto-tier --cap 256`) | `~/.config/systemd/user/` no Ancalagon |
-| `bin/lmswitch` | wrapper com subcomandos `coder\|qwen36\|qwen38\|gemma4\|colibri\|off\|sleep\|status\|logs` | `~/.local/bin/` no Ancalagon |
+| `bin/lmswitch` | wrapper com subcomandos `coder\|qwen36\|qwen38\|gemma4\|flint\|colibri\|off\|sleep\|status\|logs` | `~/.local/bin/` no Ancalagon |
 | `bin/gpu-guard` | watchdog térmico (nvidia-smi, escalonado WARN/CRIT) | `~/.local/bin/` + user unit `enabled` |
 | `systemd/gpu-guard.service` | user unit do watchdog, persistente (sobe no boot) | `~/.config/systemd/user/` no Ancalagon |
 | `bin/usb-port-guard` | desabilita a USB port11 morta (erro -71 em loop) | `/usr/local/bin/` no Ancalagon |
 | `systemd/usb-port-guard.service` | system unit do guard — dispara no boot e em cada resume | `/etc/systemd/system/` no Ancalagon |
 | `skills/delegando-ancalagon/` | skill global + `anc-delegate` (delegação headless do cloud) | symlink em `~/.claude/skills/` no Mac |
 | `scripts/install.sh` | deploy idempotente via scp + daemon-reload | — (roda do Mac) |
-| `Makefile` | targets `install`/`install-skill`/`coder`/`qwen36`/`qwen38`/`gemma4`/`off`/`sleep`/`wake`/`status`/`logs` | — |
+| `Makefile` | targets `install`/`install-skill`/`coder`/`qwen36`/`qwen38`/`gemma4`/`flint`/`off`/`sleep`/`wake`/`status`/`logs` | — |
 
 ## Decisões não-óbvias
 
@@ -65,7 +67,7 @@ Cinco services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio s
 
 ## Estado atual (2026-04-24)
 
-- Services rodando com `ctx=96K` no coder, `ctx=40K` no qwen36, `ctx=40K` no qwen38, `ctx=96K` no gemma4 (alternativa ao coder)
+- Services rodando com `ctx=96K` no coder, `ctx=40K` no qwen36, `ctx=40K` no qwen38, `ctx=96K` no gemma4 (alternativa ao coder), `ctx=128K` no flint (desde 2026-11-02; o melhor no opencode — TUNING.md §18)
 - Documentação em 3 arquivos: `README.md` (arquitetura), `CLAUDE.md` (visão para futuras sessões Claude), `docs/delegation.md` (charter para delegação do cloud para Ancalagon)
 - Mac `.zshrc` tem aliases `anc_lin_coder`/`anc_lin_qwen36`/`anc_lin_qwen38`/`anc_lin_gemma4`/`anc_lin_off`/`anc_lin_sleep`/`anc_lin_status`/`anc_lin_logs` (controle) e `srl-coder`/`srl-tq`/`srl` (entrada no Claude Code)
 - `lmstudio.service` stopped + disabled no Ancalagon (conflito de VRAM e porta com os llama services)
@@ -80,7 +82,7 @@ Cinco services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio s
 make install
 
 # Restart do service afetado
-make coder     # ou make qwen36, make qwen38, make gemma4, make colibri
+make coder     # ou make qwen36, make qwen38, make gemma4, make flint, make colibri
 
 # Verificar saúde
 make status
@@ -92,6 +94,7 @@ make status
 #   qwen36: <25 tok/s = regressão
 #   qwen38: <25 tok/s = regressão
 #   gemma4: <40 tok/s = regressão
+#   flint: <60 tok/s = regressão (85,4 tok/s medido em 2026-11-02; piso = 70%)
 #   colibri: <19 tok/s = regressão (medido 27,4 tok/s estável em 2026-09-27, tier CUDA
 #            com 7142/10240 experts residentes em VRAM; piso = 70% do medido. Com o
 #            bench-presets.py e OMP_WAIT_POLICY=PASSIVE dá ~33,6 tok/s — TUNING.md §17)

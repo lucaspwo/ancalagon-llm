@@ -737,3 +737,70 @@ memory-bound e fica igual. O qwen38 tem a mesma arquitetura do qwen36 (`qwen35`,
 o gemma4 não foi medido. **Recomendação (2026-11-02): não instalar**. Ganho de poucos % em prefill não paga o risco de um módulo de
 kernel experimental validado em uma placa. Reabrir só se um preset passar a usar pesos FP16/BF16
 (cuBLAS com acumulação FP32) ou se o llama.cpp mudar o MMQ para outro caminho.
+
+## 18. Adição do preset Flint — Recursive Flint 40B-A2.5B + rebuild do llama.cpp upstream (2026-11-02)
+
+**Modelo:** [RecursiveSI/flint](https://huggingface.co/RecursiveSI/flint) (Apache 2.0), MoE treinado do
+zero para agente de código: 39.8B total / ~2.5B ativos, 49 camadas (2 densas + 47 MoE, 256 experts,
+top-6 + 1 compartilhado), **35 camadas de sliding window (513 tokens) + 14 de atenção completa**,
+contexto nativo 262K, tool calling OpenAI-compatível com `reasoning_content` separado. GGUF
+[`unsloth/flint-GGUF`](https://huggingface.co/unsloth/flint-GGUF) `UD-Q4_K_XL` (25.05 GB, sha256
+`63c2ecc4…e072f` conferido), em `~/models/gguf/` (no `/`; o `/mnt/black` só tinha 25 GB livres).
+Benchmarks do card são do fabricante (SWE-bench Verified 74.2%, Terminal-Bench 2.1 54.9%) — não
+replicados aqui; o que vale é o teste de opencode abaixo.
+
+### Rebuild do upstream
+
+A arquitetura `flint` exige o PR #30928 (commit `a37cc461`). Upstream foi de `b10380-17-g84e908c6`
+(2026-08-12) para **`b12061-1-g29c720eaf`** (1665 commits; `--version` agora imprime `0.8.0-dev
+(build 3168, commit 29c720eaf)`), com `scripts/build-llama.sh upstream`. Backup do `build/bin`
+anterior (83 MB) em `~/llama-backup/upstream-b10380-20261102/bin` — roda direto de lá para rollback.
+O fork TQ3 (qwen36/qwen38) **não** foi tocado. A/B dos presets que usam o upstream (`bench-presets.py`):
+
+| Preset | decode antes → depois | prefill antes → depois | VRAM |
+|---|---|---|---|
+| coder | 89.14 → **86.95** tok/s (−2.5%) | 1821 → 1801 | 15174 → 15222 MiB |
+| gemma4 | 84.73 → **85.15** tok/s | 2108 → 2155 | 13916 → 13932 MiB |
+
+−2.5% no coder: acima do ruído entre runs (86.5–87.5), muito acima do piso (55). Aceito.
+
+### Sweep de `--n-cpu-moe` (ctx 131072, KV q8_0/q8_0, `-t 12`, `-fa 1`)
+
+| ncmoe | decode | prefill (~2K tok) | VRAM |
+|---|---|---|---|
+| 28 | 79.9 tok/s | 913 tok/s | 13280 MiB |
+| **24** | **82.6 tok/s** | **1081 tok/s** | **15152 MiB** |
+| 20 | não carrega (OOM) | — | — |
+
+Cada camada de experts custa ~470 MiB de VRAM; 22–23 ficariam com <1 GB de folga. **Adotado: 24**,
+mesmo patamar de VRAM do coder. O KV é barato porque só as 14 camadas de atenção completa guardam
+contexto longo: 14 × 2 × 4 heads × 128 × 1 B (q8) ≈ 14 KB/token → 128K ≈ 1.8 GB. 262K caberia
+trocando ~2 camadas para a CPU (~−1.5 tok/s); não foi preciso. Pelo `bench-presets.py` (preset
+via `lmswitch`): **85.39 tok/s decode, 1124 tok/s prefill, 15130 MiB**. Carga a frio do GGUF: 75 s
+(`wait_ready` do `flint` espera até 180 s); quente (page cache): 2 s.
+
+### Opencode (direto na `:1234`, opencode 2.2.5)
+
+- **Tool calling nativo** (curl): `finish_reason=tool_calls`, argumentos corretos, raciocínio em
+  `reasoning_content` — sem o `COLI_TOOL_FALLBACK` que o Colibri exigia.
+- **Tarefa simples** (`calc.py` com bug de média): 28 s, `Read → Edit → $ python3 calc.py`.
+- **Tarefa difícil** — `durations.py` com 2 bugs (`qty > 1`, `if t` em vez de `t.strip()`) + implementar
+  `parse_duration` estrito (rejeitar vazio, unidade repetida/desconhecida, número sem unidade, `1.5h`,
+  `-1s`), 9 testes `unittest` que não podem ser alterados, limite de 600 s:
+
+| Preset | Resultado | Tempo | Tool calls |
+|---|---|---|---|
+| flint (run 1) | **9/9 OK**, testes intactos | 127 s | 11 |
+| flint (run 2) | **9/9 OK**, testes intactos | 236 s (inclui ~50 s de carga a frio) | 11 |
+| coder | **estourou 600 s**, 1 falha (`test_invalid`) | 600 s | 51 (em loop) |
+
+Solução do flint limpa (regex âncora + conjunto de unidades vistas + `qty > 0` + `t.strip()`). n=2
+contra n=1: amostra pequena, mas a diferença é qualitativa (terminar vs. entrar em loop).
+
+**Armadilhas:**
+- **Primeiro run "travou" 400 s sem nenhum request no `journalctl`** — era um `opencode serve --service`
+  pendurado de run anterior (a trava conhecida do 2.2.5, §17), não o modelo. `pkill -f opencode` antes.
+- **Prefill menor que o do coder** (1124 vs 1801 tok/s): mais experts na CPU. Um turno de ~14K tokens
+  do opencode custa ~13 s no flint vs ~8 s no coder — pago de volta por menos voltas de ferramenta.
+- **Disco:** com o GGUF, o `/` ficou em 96% (8.9 GB livres). Os `qwen2.5-*` de abril em
+  `~/models/gguf/` (36 GB) não são citados por nenhum unit nem wrapper no Anc — candidatos a limpeza (não apagados).

@@ -1,6 +1,6 @@
 [Unit]
 Description=llama.cpp TQ3 fork server - Qwen3.8-27B-IQ3_M (100%% GPU)
-Conflicts=llama-coder.service llama-qwen36.service llama-gemma4.service lmstudio.service colibri-qwen36.service
+Conflicts=llama-coder.service llama-qwen36.service llama-gemma4.service lmstudio.service colibri-qwen36.service llama-flint.service
 After=network-online.target
 Wants=network-online.target
 

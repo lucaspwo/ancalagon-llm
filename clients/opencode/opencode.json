@@ -35,6 +35,13 @@
             "context": 98304,
             "output": 32768
           }
+        },
+        "flint": {
+          "name": "Recursive Flint 40B-A2.5B UD-Q4_K_XL (MoE, ncmoe=24, ctx 128K)",
+          "limit": {
+            "context": 131072,
+            "output": 32768
+          }
         }
       }
     },
