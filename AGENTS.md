@@ -56,9 +56,9 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 - `scripts/install.sh:14` — `scp` of the four `systemd/llama-*.service` units plus `colibri-qwen36.service` to `~/.config/systemd/user/`
 - `scripts/install.sh:19` — `scp` of `lmswitch`/`videoswitch`/`bootwin` to `~/.local/bin/` + remote `chmod +x`
 - `scripts/install.sh:24` — `sudo install` of `videoswitch-reblank` to `/usr/local/bin/` and the udev rule to `/etc/udev/rules.d/` + `udevadm control --reload`
-- `scripts/setup-system.sh:30` — enables `nvidia-suspend/resume/hibernate.service` only if present (driver series 615 dropped them; suspend is in-driver with `PreserveVideoMemoryAllocations=1` — before 2026-11-02 their absence aborted the whole script)
-- `scripts/setup-system.sh:49` — installs `systemd/99-wol.yaml` to `/etc/netplan/` + `netplan apply`
-- `scripts/setup-system.sh:67` — installs and `enable --now`s `gpu-guard.service`
+- `scripts/setup-system.sh:31` — enables `nvidia-suspend/resume/hibernate.service` only if present (driver series 615 dropped them; suspend is in-driver with `PreserveVideoMemoryAllocations=1` — before 2026-11-02 their absence aborted the whole script)
+- `scripts/setup-system.sh:50` — installs `systemd/99-wol.yaml` to `/etc/netplan/` + `netplan apply`
+- `scripts/setup-system.sh:68` — installs and `enable --now`s `gpu-guard.service`
 - `clients/glaurung-llm/gla:16` — `_pids_on_port()` / `:20` `_kill_port()` — port-based process discovery/kill via `lsof`
 - `clients/glaurung-llm/gla:47` — `_mutex()` — frees ports 1235 (llama.cpp) and 1236 (MLX) before starting a new backend
 - `clients/glaurung-llm/gla:56` — `_start_lcpp_qwen36()` / `:68` `_start_lcpp_gemma4()` — start local `llama-server` with tuned flags (KV q8/q8, `--no-mmap --jinja`)
