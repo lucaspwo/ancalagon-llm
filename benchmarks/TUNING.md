@@ -772,8 +772,8 @@ O fork TQ3 (qwen36/qwen38) **não** foi tocado. A/B dos presets que usam o upstr
 | **24** | **82.6 tok/s** | **1081 tok/s** | **15152 MiB** |
 | 20 | não carrega (OOM) | — | — |
 
-Cada camada de experts custa ~470 MiB de VRAM; 22–23 ficariam com <1 GB de folga. **Adotado: 24**,
-mesmo patamar de VRAM do coder. O KV é barato porque só as 14 camadas de atenção completa guardam
+Cada camada de experts custa ~470 MiB de VRAM; 22–23 ficariam com <1 GB de folga. **Adotado: 24** neste sweep (depois
+virou 25 para caber o ubatch 2048 — ver abaixo). O KV é barato porque só as 14 camadas de atenção completa guardam
 contexto longo: 14 × 2 × 4 heads × 128 × 1 B (q8) ≈ 14 KB/token → 128K ≈ 1.8 GB. 262K caberia
 trocando ~2 camadas para a CPU (~−1.5 tok/s); não foi preciso. Pelo `bench-presets.py` (preset
 via `lmswitch`): **85.39 tok/s decode, 1124 tok/s prefill, 15130 MiB**. Carga a frio do GGUF: 75 s
@@ -797,10 +797,35 @@ via `lmswitch`): **85.39 tok/s decode, 1124 tok/s prefill, 15130 MiB**. Carga a 
 Solução do flint limpa (regex âncora + conjunto de unidades vistas + `qty > 0` + `t.strip()`). n=2
 contra n=1: amostra pequena, mas a diferença é qualitativa (terminar vs. entrar em loop).
 
+### Sweep de ubatch × threads (prompt de ~14K tokens = um turno do opencode)
+
+O §3 tinha concluído "default 512 já satura" olhando só pp512 — mas a coluna pp4096 da mesma tabela
+já mostrava 778 → 1587 tok/s com ubatch 2048. Com experts na CPU, o lote maior dilui a cópia dos
+pesos para a GPU. Medido no flint (ctx 131072, KV q8_0, `-b = max(ub, 2048)`):
+
+| ub | t | ncmoe | decode | prefill 14K | turno 14K | VRAM |
+|---|---|---|---|---|---|---|
+| 512 | 12 | 24 | 85.6 | 1144 tok/s | 12.3 s | 15154 MiB |
+| 1024 | 12 | 24 | 84.5 | 1916 | 7.3 s | 15354 |
+| 2048 | 12 | 24 | 84.5 | 2906 | 4.8 s | 15772 (só ~600 MiB livres) |
+| 4096 | 12 | 26 (24/25 = OOM) | 82.1 | 3404 | 4.1 s | 15762 |
+| 2048 | 12 | 25 | 83.3 / 83.7 | 2814 | 5.0 s | 15324 |
+| 2048 | 8 | 25 | 83.8 | 2816 | 5.0 s | 15324 |
+| **2048** | **6** | **25** | **86.5 / 86.5** | **2815** | **5.0 s** | **15324** |
+| 2048 | 5 | 25 | 85.2 | 2805 | 5.0 s | 15324 |
+
+**Adotado: `-ub 2048 -b 2048 -t 6 --n-cpu-moe 25`.** ub 4096 ganha só 0.9 s por turno e custa
+−4.5 tok/s de decode (precisa de ncmoe 26). `-t 6` (núcleos físicos do 7600X) bate `-t 12` em
++3.5% de decode, reproduzido em duas rodadas; prefill não muda (é a GPU). Isto contradiz o §4
+(`-t 12` +5-8% em MoE, medido no LM Studio): **reabrir o `-t` do coder e do gemma4**, e o ubatch
+deles, porque o mesmo raciocínio vale. `bench-presets.py` com a config final: **86.61 tok/s decode,
+2651 tok/s prefill (~2K), 15282 MiB**. Opencode, tarefa difícil: **9/9 em 73 s** (era 127 s), 11 tool
+calls — 3 de 3 rodadas resolvidas.
+
 **Armadilhas:**
 - **Primeiro run "travou" 400 s sem nenhum request no `journalctl`** — era um `opencode serve --service`
   pendurado de run anterior (a trava conhecida do 2.2.5, §17), não o modelo. `pkill -f opencode` antes.
-- **Prefill menor que o do coder** (1124 vs 1801 tok/s): mais experts na CPU. Um turno de ~14K tokens
-  do opencode custa ~13 s no flint vs ~8 s no coder — pago de volta por menos voltas de ferramenta.
+- **Prefill com ubatch default (512) era menor que o do coder** (1124 vs 1801 tok/s): mais experts na
+  CPU. Resolvido pelo sweep acima (2651 tok/s com ub 2048).
 - **Disco:** com o GGUF, o `/` ficou em 96% (8.9 GB livres). Os `qwen2.5-*` de abril em
   `~/models/gguf/` (36 GB) não são citados por nenhum unit nem wrapper no Anc — candidatos a limpeza (não apagados).

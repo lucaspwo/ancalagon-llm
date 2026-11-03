@@ -46,7 +46,7 @@ Cinco services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio s
 | `systemd/llama-qwen36.service` | user unit — Qwen3.6-27B TQ3_4S (fork), KV q8/q8, ctx 40K | idem |
 | `systemd/llama-qwen38.service` | user unit — Qwen3.8-27B IQ3_M (fork), KV q8/q8, ctx 40K | idem |
 | `systemd/llama-gemma4.service` | user unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 8`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
-| `systemd/llama-flint.service` | user unit — Recursive Flint 40B-A2.5B MoE UD-Q4_K_XL, `--n-cpu-moe 24`, KV q8/q8, ctx 128K | idem |
+| `systemd/llama-flint.service` | user unit — Recursive Flint 40B-A2.5B MoE UD-Q4_K_XL, `--n-cpu-moe 25 -ub 2048 -t 6`, KV q8/q8, ctx 128K | idem |
 | `systemd/colibri-qwen36.service` | user unit — Qwen3.6-35B-A3B via engine Colibri, tier CUDA (`--auto-tier --cap 256`) | `~/.config/systemd/user/` no Ancalagon |
 | `bin/lmswitch` | wrapper com subcomandos `coder\|qwen36\|qwen38\|gemma4\|flint\|colibri\|off\|sleep\|status\|logs` | `~/.local/bin/` no Ancalagon |
 | `bin/gpu-guard` | watchdog térmico (nvidia-smi, escalonado WARN/CRIT) | `~/.local/bin/` + user unit `enabled` |
@@ -94,7 +94,7 @@ make status
 #   qwen36: <25 tok/s = regressão
 #   qwen38: <25 tok/s = regressão
 #   gemma4: <40 tok/s = regressão
-#   flint: <60 tok/s = regressão (85,4 tok/s medido em 2026-11-02; piso = 70%)
+#   flint: <60 tok/s = regressão (86,6 tok/s medido em 2026-11-02; piso = 70%)
 #   colibri: <19 tok/s = regressão (medido 27,4 tok/s estável em 2026-09-27, tier CUDA
 #            com 7142/10240 experts residentes em VRAM; piso = 70% do medido. Com o
 #            bench-presets.py e OMP_WAIT_POLICY=PASSIVE dá ~33,6 tok/s — TUNING.md §17)

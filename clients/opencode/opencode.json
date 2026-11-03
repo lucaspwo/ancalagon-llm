@@ -37,7 +37,7 @@
           }
         },
         "flint": {
-          "name": "Recursive Flint 40B-A2.5B UD-Q4_K_XL (MoE, ncmoe=24, ctx 128K)",
+          "name": "Recursive Flint 40B-A2.5B UD-Q4_K_XL (MoE, ncmoe=25, ub 2048, ctx 128K)",
           "limit": {
             "context": 131072,
             "output": 32768
