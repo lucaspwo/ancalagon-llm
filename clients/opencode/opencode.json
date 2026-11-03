@@ -9,7 +9,7 @@
       },
       "models": {
         "coder": {
-          "name": "Qwen3-Coder 30B-A3B Q4_K_M (MoE, ncmoe=16)",
+          "name": "Qwen3-Coder 30B-A3B Q4_K_M (MoE, ncmoe=17, ub 2048)",
           "limit": {
             "context": 98304,
             "output": 32768
@@ -30,7 +30,7 @@
           }
         },
         "gemma4": {
-          "name": "Gemma 4 26B-A4B-it Q4_K_M (MoE, ncmoe=8)",
+          "name": "Gemma 4 26B-A4B-it Q4_K_M (MoE, ncmoe=8, ub 2048)",
           "limit": {
             "context": 98304,
             "output": 32768

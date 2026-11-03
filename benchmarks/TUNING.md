@@ -62,7 +62,7 @@ Nesta etapa o service usava `ncmoe=12`, mirando o headroom maior (pico do bench)
 
 **Em produção com 64K ctx** (desde que Claude Code system prompt + tools consome ~32K e 32K não dava margem pro user content): testado `ncmoe=12 + ctx=65536 + KV q4/q4` — cabe em **15.7 GiB / 175 MiB livres**, com 75.7 tok/s em prompt de 400 tokens (perda de ~5% vs 32K pelo KV cache maior). Config do `llama-coder.service` nesta etapa, superada depois pela subida para 96K.
 
-**Config atual em produção (96K ctx):** `-c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 16`. Subir de 64K para 96K aumenta o KV cache, o que exigiu mover mais experts para a CPU (`ncmoe` 12 → 16) para caber nos 16 GiB — trocou-se ~2% de tok/s por +50% de contexto, justificado pelo system prompt do Claude Code consumir ~32K sozinho. **Fonte de verdade é o `ExecStart=` de [`systemd/llama-coder.service`](../systemd/llama-coder.service)**, não este texto: as linhas acima registram o histórico do sweep, não o estado corrente.
+**Config em produção até 2026-11-02 (96K ctx):** `-c 98304 -ngl 99 -fa 1 -ctk q4_0 -ctv q4_0 -t 12 --n-cpu-moe 16` (desde então `-t 6 --n-cpu-moe 17 -ub 2048 -b 2048` — §19). Subir de 64K para 96K aumenta o KV cache, o que exigiu mover mais experts para a CPU (`ncmoe` 12 → 16) para caber nos 16 GiB — trocou-se ~2% de tok/s por +50% de contexto, justificado pelo system prompt do Claude Code consumir ~32K sozinho. **Fonte de verdade é o `ExecStart=` de [`systemd/llama-coder.service`](../systemd/llama-coder.service)**, não este texto: as linhas acima registram o histórico do sweep, não o estado corrente.
 
 ## 3. ubatch sweep
 
@@ -77,11 +77,15 @@ Testado com `ncmoe=12`, `pp4096+tg128`:
 
 Default 512 já satura prompt processing. ubatch 1024 dá ~2% em pp e, curiosamente, subiu tg em alguns runs (variance dentro do ±). Não vale mudar.
 
+> **Revisto em 2026-11-02 (§18/§19):** a conclusão olhou só pp512. A coluna pp4096 já mostrava ~2× com ubatch 2048, e o opencode/Claude Code mandam turnos de 14-32K. Os três presets MoE passaram a `-ub 2048`.
+
 ## 4. CPU thread pool
 
 Ryzen 7600X 6c/12t. Default LM Studio = 9 (75% do SMT), usar 12 (SMT completo) → +5-8% em MoE.
 
 Configurado via `llm.load.llama.cpuThreadPoolSize` no preset LM Studio e `-t 12` no llama.cpp.
+
+> **Revisto em 2026-11-02 (§19):** no llama.cpp atual (b12061) com experts na CPU, `-t 6` (núcleos físicos) dá +2-4% de decode sobre `-t 12` em flint, coder e gemma4; `-t 8` fica no meio. Os três passaram a `-t 6`.
 
 ## 5. Fork TQ3 vs upstream (Qwen3.6-27B)
 
@@ -829,3 +833,29 @@ calls — 3 de 3 rodadas resolvidas.
   CPU. Resolvido pelo sweep acima (2651 tok/s com ub 2048).
 - **Disco:** com o GGUF, o `/` ficou em 96% (8.9 GB livres). Os `qwen2.5-*` de abril em
   `~/models/gguf/` (36 GB) não são citados por nenhum unit nem wrapper no Anc — candidatos a limpeza (não apagados).
+
+## 19. ubatch 2048 + `-t 6` no coder e no gemma4 (2026-11-02)
+
+Mesmo sweep do §18 (`moe-sweep.py`: prompt de ~15K tokens com nonce, `cache_prompt:false`, decode =
+média de 3 runs após 1 descartado), ctx 98304 e KV q4_0 como em produção, build b12061:
+
+| Preset | ub | t | ncmoe | decode | prefill 15K | turno 15K | VRAM |
+|---|---|---|---|---|---|---|---|
+| coder | 512 | 12 | 16 | 85.7 | 2016 tok/s | 7.5 s | 15232 MiB |
+| coder | 2048 | 12 | 16 | 85.5 | 3939 | 3.8 s | 15740 |
+| coder | 2048 | 8 | 16 | 87.9 | 3928 | 3.8 s | 15740 |
+| coder | 2048 | 6 | 16 | 89.2 / 89.4 | 3927 / 3935 | 3.8 s | 15740 (~640 MiB livres) |
+| coder | 1024 | 6 | 16 | 89.4 | 3039 | 5.0 s | 15416 |
+| **coder** | **2048** | **6** | **17** | **86.9** | **3854** | **3.9 s** | **15416** |
+| gemma4 | 512 | 12 | 8 | 85.2 | 2511 | 6.0 s | 13966 |
+| gemma4 | 2048 | 12 | 8 | 85.4 | 4655 | 3.2 s | 14548 |
+| gemma4 | 2048 | 8 | 8 | 86.9 | 4645 | 3.2 s | 14548 |
+| **gemma4** | **2048** | **6** | **8** | **87.4** | **4660** | **3.2 s** | **14548** |
+| gemma4 | 1024 | 6 | 8 | 87.6 | 3761 | 4.0 s | 14160 |
+
+**Adotado:** coder `-t 6 --n-cpu-moe 17 -ub 2048 -b 2048`; gemma4 `-t 6 --n-cpu-moe 8 -ub 2048 -b 2048`.
+No coder a regra foi a mesma do flint — manter ~1 GB de VRAM livre: ncmoe 16 com ub 2048 deixava ~640
+MiB. Empate técnico com `ub 1024 / ncmoe 16` (mesma VRAM, +2.5 tok/s de decode, −21% de prefill);
+venceu o prefill porque o coder é o backend do `srl-coder`, cujo system prompt do Claude Code tem ~32K
+(~8 s em vez de ~10.5 s no primeiro turno). O gemma4 cabe o ub 2048 sem mexer no ncmoe.
+

@@ -42,10 +42,10 @@ Cinco services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio s
 
 | Arquivo | O que é | Onde vai |
 |---|---|---|
-| `systemd/llama-coder.service` | user unit — Qwen3-Coder 30B MoE, `--n-cpu-moe 16`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
+| `systemd/llama-coder.service` | user unit — Qwen3-Coder 30B MoE, `--n-cpu-moe 17 -ub 2048 -t 6`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
 | `systemd/llama-qwen36.service` | user unit — Qwen3.6-27B TQ3_4S (fork), KV q8/q8, ctx 40K | idem |
 | `systemd/llama-qwen38.service` | user unit — Qwen3.8-27B IQ3_M (fork), KV q8/q8, ctx 40K | idem |
-| `systemd/llama-gemma4.service` | user unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 8`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
+| `systemd/llama-gemma4.service` | user unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 8 -ub 2048 -t 6`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
 | `systemd/llama-flint.service` | user unit — Recursive Flint 40B-A2.5B MoE UD-Q4_K_XL, `--n-cpu-moe 25 -ub 2048 -t 6`, KV q8/q8, ctx 128K | idem |
 | `systemd/colibri-qwen36.service` | user unit — Qwen3.6-35B-A3B via engine Colibri, tier CUDA (`--auto-tier --cap 256`) | `~/.config/systemd/user/` no Ancalagon |
 | `bin/lmswitch` | wrapper com subcomandos `coder\|qwen36\|qwen38\|gemma4\|flint\|colibri\|off\|sleep\|status\|logs` | `~/.local/bin/` no Ancalagon |
@@ -60,7 +60,7 @@ Cinco services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio s
 ## Decisões não-óbvias
 
 1. **Mesma porta 1234 em todos os services** (não 1234/1235/1236). `Conflicts=` garante exclusão mútua, clientes existentes não trocam URL.
-2. **`--n-cpu-moe 16` no coder, não `--n-cpu-moe 12`** (que seria o pico de tok/s). Trocou-se ~2% de velocidade por +50% de contexto (64K → 96K), porque o system prompt do Claude Code sozinho já consome ~32K.
+2. **`--n-cpu-moe 16` no coder, não `--n-cpu-moe 12`** (que seria o pico de tok/s). Trocou-se ~2% de velocidade por +50% de contexto (64K → 96K), porque o system prompt do Claude Code sozinho já consome ~32K. Em 2026-11-02 virou `17` para caber o `-ub 2048` (prefill ~2×; TUNING.md §19).
 3. **KV q4/q4 no coder, q8/q8 no qwen36**. No qwen3.6 com offload parcial, K≠V quebra CUDA flash-attn e cai para 1 tok/s. No coder MoE quase tudo na GPU, q4 simétrico funciona e libera VRAM.
 4. **TQ3_4S em vez de Q4_K_M no qwen3.6**. 13 GB cabe 100% GPU; qualidade perceptível equivalente (validado contra bug de rate-limiter com concorrência + clock drift).
 5. **Services NÃO são `enabled`**. Boot limpo não sobe nada; Lucas invoca sob demanda. Decisão consciente — VRAM é compartilhada com outras tarefas eventuais.

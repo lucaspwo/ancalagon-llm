@@ -82,10 +82,10 @@ Services are **not enabled by default** — a clean boot starts nothing; you inv
 ## How to run
 
 ```bash
-make coder     # start Qwen3-Coder-30B (MoE, --n-cpu-moe 16, ctx 96K)
+make coder     # start Qwen3-Coder-30B (MoE, --n-cpu-moe 17, -ub 2048, ctx 96K)
 make qwen36    # start Qwen3.6-27B-TQ3_4S (100% GPU, ctx 40K)
 make qwen38    # start Qwen3.8-27B-IQ3_M (100% GPU, ctx 40K)
-make gemma4    # start Gemma 4 26B-A4B-it (MoE, --n-cpu-moe 8, ctx 96K)
+make gemma4    # start Gemma 4 26B-A4B-it (MoE, --n-cpu-moe 8, -ub 2048, ctx 96K)
 make flint     # start Recursive Flint 40B-A2.5B (MoE, --n-cpu-moe 25, -ub 2048, ctx 128K) — best agentic pick for opencode
 make colibri   # start Qwen3.6-35B-A3B via Colibri (CUDA VRAM tier, ~70% experts resident)
 make off       # stop whichever preset is active

@@ -10,10 +10,10 @@ usage() {
   cat <<EOF
 Usage: lmswitch {coder|qwen36|qwen38|gemma4|flint|colibri|off|sleep|status|logs}
 
-  coder    — start upstream llama.cpp with Qwen3-Coder-30B-A3B (MoE, ncmoe=16)
+  coder    — start upstream llama.cpp with Qwen3-Coder-30B-A3B (MoE, ncmoe=17, ub 2048)
   qwen36   — start TQ3 fork with Qwen3.6-27B-TQ3_4S (100% GPU)
   qwen38   — start TQ3 fork with Qwen3.8-27B-IQ3_M (100% GPU)
-  gemma4   — start upstream llama.cpp with Gemma 4 26B-A4B-it (MoE, ncmoe=8)
+  gemma4   — start upstream llama.cpp with Gemma 4 26B-A4B-it (MoE, ncmoe=8, ub 2048)
   flint    — start upstream llama.cpp with Recursive Flint 40B-A2.5B (MoE, ncmoe=25, ub 2048, ctx 128K)
   colibri  — start Colibri engine with Qwen3.6-35B-A3B (CUDA VRAM tier, ~70% experts resident)
   off      — stop any active llama/colibri server
@@ -59,7 +59,7 @@ case "$COMMAND" in
   coder)
     stop_all
     systemctl --user start llama-coder.service
-    wait_ready llama-coder.service "qwen3-coder (ncmoe=16)"
+    wait_ready llama-coder.service "qwen3-coder (ncmoe=17)"
     ;;
   qwen36|qwen3.6|tq3)
     stop_all
