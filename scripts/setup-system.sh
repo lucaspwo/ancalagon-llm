@@ -62,6 +62,13 @@ echo "→ Instalando /etc/default/console-setup (TerminusBold 16x32)..."
 sudo install -m 0644 -o root -g root \
   "$REPO_DIR/systemd/console-setup" /etc/default/console-setup
 sudo setupcon --save --force 2>&1 | tail -5 || true
+# O setupcon reconfigura o console e religa a saída de vídeo SEM uevent de hotplug, então a regra
+# 90-videoswitch-reblank não age (visto em 2026-11-02: monitores "ligados de tela preta" depois do
+# install-system). Respeita o último `videoswitch off`.
+if [ "$(cat /run/videoswitch.state 2>/dev/null)" = off ] && [ -e /sys/class/graphics/fb0/blank ]; then
+  sudo sh -c 'echo 4 > /sys/class/graphics/fb0/blank'
+  echo "  vídeo reapagado (videoswitch estava em off)"
+fi
 sudo update-initramfs -u 2>&1 | tail -2
 
 echo ""
