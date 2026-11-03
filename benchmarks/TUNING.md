@@ -859,3 +859,19 @@ MiB. Empate técnico com `ub 1024 / ncmoe 16` (mesma VRAM, +2.5 tok/s de decode,
 venceu o prefill porque o coder é o backend do `srl-coder`, cujo system prompt do Claude Code tem ~32K
 (~8 s em vez de ~10.5 s no primeiro turno). O gemma4 cabe o ub 2048 sem mexer no ncmoe.
 
+
+### Mesma tarefa no Claude Code (2.1.316, como o `srl-coder`: `ANTHROPIC_BASE_URL` na `:1234`)
+
+| App | Preset | Resultado | Tempo | Tool calls |
+|---|---|---|---|---|
+| opencode | flint | 9/9 (3 de 3 rodadas) | 73 s (config final) | 11 |
+| opencode | coder | estourou 600 s, 1 falha | 600 s | 51 |
+| Claude Code | flint | 9/9 | 577 s | 20 (18K tokens de saída) |
+| Claude Code | coder | estourou 600 s, 1 erro | 600 s | 33 |
+
+O Claude Code é ~8× mais lento que o opencode na mesma tarefa com o mesmo modelo (system prompt e
+ferramentas maiores, mais raciocínio por turno), mas o flint fecha nos dois e o coder em nenhum.
+**Janela de contexto:** com modelo desconhecido o Claude Code assume `contextWindow: 200000` e
+deixaria a sessão passar do `-c` do servidor antes de compactar. `CLAUDE_CODE_MAX_CONTEXT_TOKENS` +
+`CLAUDE_CODE_AUTO_COMPACT_WINDOW` com o `-c` do preset (131072 no flint, 98304 no coder/gemma4)
+corrigem — conferido no `modelUsage.contextWindow` do `claude -p --output-format json`.
