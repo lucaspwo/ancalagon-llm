@@ -24,7 +24,7 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 | `bin/videoswitch-reblank` + `systemd/90-videoswitch-reblank.rules` | udev hook (`drm change HOTPLUG=1`) that re-blanks `fb0` when a monitor's sleep/HPD drop makes nvidia-drm relight the output after `videoswitch off` |
 | `bin/bootwin` | One-shot UEFI reboot into Windows (`--dry-run` supported) |
 | `scripts/install.sh` | Deploys units + `bin/` wrappers to Ancalagon via `scp` + `daemon-reload` |
-| `scripts/setup-system.sh` | One-time system prerequisites (WoL, nvidia-suspend/resume/hibernate, console font, gpu-guard enable, usb-port-guard) |
+| `scripts/setup-system.sh` | One-time system prerequisites (WoL, nvidia-suspend/resume/hibernate when the driver still ships them, console font, gpu-guard enable, usb-port-guard) |
 | `scripts/build-llama.sh` | Reference build script for llama.cpp (manual, not wired to `make`) |
 | `scripts/bench-presets.py` | A/B benchmark of the presets (decode + prefill), run on Ancalagon; method in `benchmarks/TUNING.md` §16 |
 | `clients/glaurung-llm/gla` | Mac-side backend switcher (llama.cpp Metal / MLX) + opencode launcher |
@@ -56,9 +56,9 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 - `scripts/install.sh:14` — `scp` of the four `systemd/llama-*.service` units plus `colibri-qwen36.service` to `~/.config/systemd/user/`
 - `scripts/install.sh:19` — `scp` of `lmswitch`/`videoswitch`/`bootwin` to `~/.local/bin/` + remote `chmod +x`
 - `scripts/install.sh:24` — `sudo install` of `videoswitch-reblank` to `/usr/local/bin/` and the udev rule to `/etc/udev/rules.d/` + `udevadm control --reload`
-- `scripts/setup-system.sh:29` — enables `nvidia-suspend/resume/hibernate.service`
-- `scripts/setup-system.sh:33` — installs `systemd/99-wol.yaml` to `/etc/netplan/` + `netplan apply`
-- `scripts/setup-system.sh:50` — installs and `enable --now`s `gpu-guard.service`
+- `scripts/setup-system.sh:30` — enables `nvidia-suspend/resume/hibernate.service` only if present (driver series 615 dropped them; suspend is in-driver with `PreserveVideoMemoryAllocations=1` — before 2026-11-02 their absence aborted the whole script)
+- `scripts/setup-system.sh:49` — installs `systemd/99-wol.yaml` to `/etc/netplan/` + `netplan apply`
+- `scripts/setup-system.sh:67` — installs and `enable --now`s `gpu-guard.service`
 - `clients/glaurung-llm/gla:16` — `_pids_on_port()` / `:20` `_kill_port()` — port-based process discovery/kill via `lsof`
 - `clients/glaurung-llm/gla:47` — `_mutex()` — frees ports 1235 (llama.cpp) and 1236 (MLX) before starting a new backend
 - `clients/glaurung-llm/gla:56` — `_start_lcpp_qwen36()` / `:68` `_start_lcpp_gemma4()` — start local `llama-server` with tuned flags (KV q8/q8, `--no-mmap --jinja`)

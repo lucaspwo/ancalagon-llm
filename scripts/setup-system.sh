@@ -5,9 +5,10 @@
 # Idempotente. Roda com sudo (ou via usuário com NOPASSWD).
 #
 # O que faz:
-#   1. Habilita nvidia-suspend/resume/hibernate.service (o driver nvidia-open
-#      falha o suspend se esses services não estiverem ativos — observado
-#      2026-04-24 com erro NVRM "PreserveVideoMemoryAllocations ...").
+#   1. Habilita nvidia-suspend/resume/hibernate.service, SE existirem (o driver
+#      nvidia-open antigo falhava o suspend sem eles — observado 2026-04-24 com erro
+#      NVRM "PreserveVideoMemoryAllocations ..."). A série 615 não traz mais essas
+#      units: o passo vira no-op e só imprime o PreserveVideoMemoryAllocations.
 #   2. Instala netplan override /etc/netplan/99-wol.yaml para armar
 #      Wake-on-LAN na eno1 (default vem como "wol: d" = disabled).
 #   3. Aplica netplan (netplan apply) e valida ethtool.
@@ -28,7 +29,22 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "→ Habilitando nvidia-*.service..."
-sudo systemctl enable nvidia-suspend.service nvidia-resume.service nvidia-hibernate.service 2>&1 | tail -5
+# A série 615 do driver não traz mais nvidia-suspend/resume/hibernate.service nem o nvidia-sleep.sh
+# (conferido nos .deb de 615.71.09 e 615.71.10): o suspend é tratado dentro do driver
+# (PreserveVideoMemoryAllocations=1) + drop-in nvidia-suspend-nofreeze.conf no systemd-suspend.
+# Habilita só as units que existirem; antes, a ausência abortava o script inteiro (set -e).
+NVIDIA_SLEEP_UNITS=()
+for unit in nvidia-suspend.service nvidia-resume.service nvidia-hibernate.service; do
+  if systemctl list-unit-files "$unit" --no-legend | grep -q "$unit"; then
+    NVIDIA_SLEEP_UNITS+=("$unit")
+  fi
+done
+if [ "${#NVIDIA_SLEEP_UNITS[@]}" -gt 0 ]; then
+  sudo systemctl enable "${NVIDIA_SLEEP_UNITS[@]}" 2>&1 | tail -5
+else
+  echo "  driver sem nvidia-suspend/resume/hibernate.service (série 615+): nada a habilitar"
+  grep -h PreserveVideoMemoryAllocations /proc/driver/nvidia/params | sed 's/^/  /'
+fi
 echo ""
 
 echo "→ Instalando netplan override 99-wol.yaml..."

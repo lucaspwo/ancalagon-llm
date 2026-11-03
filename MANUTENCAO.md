@@ -25,7 +25,7 @@ Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Co
 | `bin/videoswitch-reblank` + `systemd/90-videoswitch-reblank.rules` | Hook udev (`drm change HOTPLUG=1`) que reapaga o `fb0` quando o hotplug do monitor religa a saída depois de um `videoswitch off` |
 | `bin/bootwin` | Reboot one-shot para Windows via `efibootmgr -n` (BootNext) |
 | `scripts/install.sh` | Deploy idempotente (scp + daemon-reload) dos units + wrappers para o Ancalagon |
-| `scripts/setup-system.sh` | Aplica pré-requisitos de sistema (WoL, `nvidia-suspend/resume/hibernate`, fonte do console, `gpu-guard` habilitado) |
+| `scripts/setup-system.sh` | Aplica pré-requisitos de sistema (WoL, `nvidia-suspend/resume/hibernate` se o driver ainda os trouxer, fonte do console, `gpu-guard` habilitado) |
 | `scripts/build-llama.sh` | Build do `llama.cpp` (referência; compilação real é manual no Ancalagon) |
 | `scripts/bench-presets.py` | Benchmark A/B dos presets (decode + prefill), roda no Ancalagon; método em `benchmarks/TUNING.md` §16 |
 | `clients/glaurung-llm/gla` | Wrapper Mac-side: sobe backend local (llama.cpp Metal ou MLX) + abre `opencode` já configurado |
@@ -56,9 +56,9 @@ Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Co
 - `scripts/install.sh:14` — `scp` dos quatro `systemd/llama-*.service` mais `colibri-qwen36.service` para `~/.config/systemd/user/` no Ancalagon
 - `scripts/install.sh:19` — `scp` de `lmswitch`/`videoswitch`/`bootwin` para `~/.local/bin/` + `chmod +x` remoto
 - `scripts/install.sh:24` — `sudo install` do `videoswitch-reblank` em `/usr/local/bin/` e da regra em `/etc/udev/rules.d/` + `udevadm control --reload`
-- `scripts/setup-system.sh:29` — habilita `nvidia-suspend/resume/hibernate.service` (pré-requisito do `lmswitch sleep`)
-- `scripts/setup-system.sh:33` — instala `systemd/99-wol.yaml` em `/etc/netplan/` + `netplan apply`
-- `scripts/setup-system.sh:50` — instala `gpu-guard` em `~/.local/bin/`, a unit em `~/.config/systemd/user/` e faz `enable --now`
+- `scripts/setup-system.sh:30` — habilita `nvidia-suspend/resume/hibernate.service` só se existirem (pré-requisito do `lmswitch sleep` no driver antigo; a série 615 não os traz mais — o suspend é interno ao driver com `PreserveVideoMemoryAllocations=1`. Até 2026-11-02 a ausência abortava o script inteiro)
+- `scripts/setup-system.sh:49` — instala `systemd/99-wol.yaml` em `/etc/netplan/` + `netplan apply`
+- `scripts/setup-system.sh:67` — instala `gpu-guard` em `~/.local/bin/`, a unit em `~/.config/systemd/user/` e faz `enable --now`
 - `clients/glaurung-llm/gla:16` — `_pids_on_port()` / `:20` `_kill_port()` — descoberta e kill de processo por porta TCP via `lsof`
 - `clients/glaurung-llm/gla:47` — `_mutex()` — garante que as portas `1235` (llama.cpp) e `1236` (MLX) estão livres antes de subir um novo backend
 - `clients/glaurung-llm/gla:56` — `_start_lcpp_qwen36()` / `:68` `_start_lcpp_gemma4()` — sobem `llama-server` local com as flags tuned (KV q8/q8, `--no-mmap --jinja`)
