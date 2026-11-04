@@ -15,6 +15,8 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 | `systemd/colibri-qwen36.service` | Unit — Qwen3.6-35B-A3B MoE via the [Colibrì](https://github.com/JustVugg/colibri) engine (not llama.cpp), CUDA VRAM expert tier, `--auto-tier --cap 256`, `COLI_ALLOW_INSECURE_BIND=1`, `COLI_ALLOWED_HOSTS` (Host guard → 403 otherwise), `OMP_WAIT_POLICY=PASSIVE` |
 | `systemd/gpu-guard.service` | Unit — thermal watchdog, `enabled` (persistent, unlike the four services above) |
 | `systemd/usb-port-guard.service` | System unit — disables the dead USB port11 on boot and on every resume (see `docs/usb-port11.md`) |
+| `systemd/openrgb-boot.service` | System unit — `openrgb -c 000000` (RGB off: 2× ENE DRAM + ASUS AURA USB `0b05:19af`) on boot **and on every resume** (resume re-enumerates USB and the AURA controller resets to factory colors) |
+| `systemd/videoswitch-boot.service` | System unit — `videoswitch off` at the end of boot (monitors off; `make video-on` to restore) |
 | `systemd/99-wol.yaml` | netplan override — arms Wake-on-LAN on `eno1` |
 | `systemd/console-setup` | `/etc/default/console-setup` — TTY font config |
 | `bin/lmswitch` | Preset switcher (runs on Ancalagon): `coder\|qwen36\|qwen38\|gemma4\|flint\|colibri\|off\|sleep\|status\|logs` |
@@ -24,7 +26,7 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 | `bin/videoswitch-reblank` + `systemd/90-videoswitch-reblank.rules` | udev hook (`drm change HOTPLUG=1`) that re-blanks `fb0` when a monitor's sleep/HPD drop makes nvidia-drm relight the output after `videoswitch off` |
 | `bin/bootwin` | One-shot UEFI reboot into Windows (`--dry-run` supported) |
 | `scripts/install.sh` | Deploys units + `bin/` wrappers to Ancalagon via `scp` + `daemon-reload` |
-| `scripts/setup-system.sh` | One-time system prerequisites (WoL, nvidia-suspend/resume/hibernate when the driver still ships them, console font, gpu-guard enable, usb-port-guard) |
+| `scripts/setup-system.sh` | One-time system prerequisites (WoL, nvidia-suspend/resume/hibernate when the driver still ships them, console font, gpu-guard enable, usb-port-guard, openrgb-boot + videoswitch-boot) |
 | `scripts/build-llama.sh` | Reference build script for llama.cpp (manual, not wired to `make`) |
 | `scripts/bench-presets.py` | A/B benchmark of the presets (decode + prefill), run on Ancalagon; method in `benchmarks/TUNING.md` §16 |
 | `clients/glaurung-llm/gla` | Mac-side backend switcher (llama.cpp Metal / MLX) + opencode launcher |

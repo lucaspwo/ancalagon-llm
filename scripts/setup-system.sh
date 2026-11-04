@@ -16,6 +16,8 @@
 #      (console TTY legível em 1080p+; ver docs/console-setup.md).
 #   5. Instala usb-port-guard (system service): desabilita a USB port11 morta
 #      no boot e a cada resume (erro -71 em loop; ver docs/usb-port11.md).
+#   6. Instala openrgb-boot + videoswitch-boot (system services): apagam os LEDs RGB
+#      e os monitores ao fim do boot.
 #
 # Pré-requisito não gerenciado aqui:
 #   - /etc/sudoers.d/lucas-nopasswd com "lucas ALL=(ALL) NOPASSWD: ALL"
@@ -88,6 +90,19 @@ sudo install -m 0644 "$REPO_DIR/systemd/usb-port-guard.service" \
 sudo systemctl daemon-reload
 sudo systemctl enable --now usb-port-guard.service
 sudo systemctl start usb-port-guard.service
+
+echo ""
+echo "→ Instalando openrgb-boot + videoswitch-boot (LEDs e monitores apagados ao fim do boot)..."
+sudo install -m 0644 -o root -g root "$REPO_DIR/systemd/openrgb-boot.service" \
+  /etc/systemd/system/openrgb-boot.service
+sudo install -m 0644 -o root -g root "$REPO_DIR/systemd/videoswitch-boot.service" \
+  /etc/systemd/system/videoswitch-boot.service
+sudo systemctl daemon-reload
+# Só enable: o efeito vale a partir do próximo boot. Não apaga os monitores de quem roda isto na frente
+# da máquina (para apagar agora: `videoswitch off`).
+# reenable (não enable): o [Install] do openrgb-boot ganhou os targets de suspend em 2026-11-04 e a
+# versão antiga, criada à mão, só tinha os links de multi-user.target.
+sudo systemctl reenable openrgb-boot.service videoswitch-boot.service
 
 echo ""
 echo "Done. Teste com: lmswitch sleep (do Ancalagon) ou anc_lin_sleep (do Mac)"

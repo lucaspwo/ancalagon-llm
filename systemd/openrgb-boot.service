@@ -1,0 +1,28 @@
+# Apaga os LEDs RGB (2× ENE DRAM + placa-mãe ASUS TUF X670E-PLUS, controladora USB 0b05:19af) no boot
+# E na saída de cada suspend.
+# Criado direto no Ancalagon em 2026-09-27 (só no boot) e versionado aqui em 2026-11-04.
+# Por que o resume: ao acordar, o root hub USB "lost power or was reset" e re-enumera o barramento
+# (mesmo mecanismo do usb-port-guard.service), a controladora AURA volta ao padrão de fábrica e os LEDs
+# reacendem. Visto em 2026-11-04: LEDs acesos depois do WoL, com o último boot (02/nov) tendo apagado.
+# RemainAfterExit=no é obrigatório: com "yes" a unit continuaria active e o resume não a rodaria de novo.
+# O sleep dá tempo para a re-enumeração USB terminar antes da detecção do OpenRGB.
+# User=lucas reaproveita os grupos i2c/plugdev (sem sessão de login: o uaccess das regras oficiais
+# não vale em máquina headless — ver /etc/udev/rules.d/61-openrgb-headless.rules, fora deste repo).
+# O OpenRGB é compilado do git, fora deste repo, em /usr/bin/openrgb.
+# Instalado em /etc/systemd/system/ por `make install-system`.
+[Unit]
+Description=Apagar os LEDs RGB (OpenRGB) no boot e no resume
+After=multi-user.target suspend.target hibernate.target hybrid-sleep.target
+ConditionPathExists=/usr/bin/openrgb
+
+[Service]
+Type=oneshot
+User=lucas
+ExecStartPre=/bin/sleep 5
+# -l só lista: deixa no journal quais dispositivos foram detectados em cada execução.
+ExecStart=/usr/bin/openrgb -l
+ExecStart=/usr/bin/openrgb -c 000000
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target suspend.target hibernate.target hybrid-sleep.target

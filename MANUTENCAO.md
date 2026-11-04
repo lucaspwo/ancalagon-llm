@@ -17,6 +17,8 @@ Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Co
 | `systemd/llama-*.service` | Units `--user` dos quatro presets `llama.cpp` (fonte de verdade — deploy via `make install`, nunca editar direto no Ancalagon) |
 | `systemd/colibri-qwen36.service` | Unit `--user` do 5º preset, engine Colibri (não `llama.cpp`) — tier CUDA, `COLI_ALLOW_INSECURE_BIND=1` |
 | `systemd/gpu-guard.service` | Unit `--user` **persistente** (enabled) do watchdog térmico |
+| `systemd/openrgb-boot.service` | System unit que apaga os LEDs RGB (`openrgb -c 000000`: 2× ENE DRAM + AURA USB da placa-mãe) no boot **e em cada resume** — o resume re-enumera o USB e a controladora AURA volta às cores de fábrica |
+| `systemd/videoswitch-boot.service` | System unit que roda `videoswitch off` ao fim do boot (monitores apagados; `make video-on` religa) |
 | `systemd/99-wol.yaml` | Override netplan que arma Wake-on-LAN na `eno1` |
 | `systemd/console-setup` | `/etc/default/console-setup` — fonte do console TTY (ver `docs/console-setup.md`) |
 | `bin/lmswitch` | Wrapper que troca entre os cinco presets, faz health-poll, mostra status/logs (roda no Ancalagon) |
@@ -25,7 +27,7 @@ Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Co
 | `bin/videoswitch-reblank` + `systemd/90-videoswitch-reblank.rules` | Hook udev (`drm change HOTPLUG=1`) que reapaga o `fb0` quando o hotplug do monitor religa a saída depois de um `videoswitch off` |
 | `bin/bootwin` | Reboot one-shot para Windows via `efibootmgr -n` (BootNext) |
 | `scripts/install.sh` | Deploy idempotente (scp + daemon-reload) dos units + wrappers para o Ancalagon |
-| `scripts/setup-system.sh` | Aplica pré-requisitos de sistema (WoL, `nvidia-suspend/resume/hibernate` se o driver ainda os trouxer, fonte do console, `gpu-guard` habilitado) |
+| `scripts/setup-system.sh` | Aplica pré-requisitos de sistema (WoL, `nvidia-suspend/resume/hibernate` se o driver ainda os trouxer, fonte do console, `gpu-guard` habilitado, `usb-port-guard`, `openrgb-boot` + `videoswitch-boot`) |
 | `scripts/build-llama.sh` | Build do `llama.cpp` (referência; compilação real é manual no Ancalagon) |
 | `scripts/bench-presets.py` | Benchmark A/B dos presets (decode + prefill), roda no Ancalagon; método em `benchmarks/TUNING.md` §16 |
 | `clients/glaurung-llm/gla` | Wrapper Mac-side: sobe backend local (llama.cpp Metal ou MLX) + abre `opencode` já configurado |

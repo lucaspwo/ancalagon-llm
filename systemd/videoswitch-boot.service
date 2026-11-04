@@ -1,0 +1,20 @@
+# Apaga os monitores (`videoswitch off`) ao fim do boot: o Ancalagon é usado remoto, sem ninguém na tela.
+# Grava `off` em /run/videoswitch.state, então a regra 90-videoswitch-reblank passa a reapagar
+# quando um hotplug DRM religar a saída. Para religar: `make video-on` do Mac. Sem rede, dá para fazer
+# às cegas no console: login no tty1 e `~/.local/bin/videoswitch on`.
+# Depende do `make install` (videoswitch em ~/.local/bin) e do sudoers NOPASSWD do lucas.
+# Instalado em /etc/systemd/system/ por `make install-system`.
+[Unit]
+Description=Apagar os monitores (videoswitch off) ao fim do boot
+After=multi-user.target console-setup.service getty@tty1.service
+ConditionPathExists=/sys/class/graphics/fb0/blank
+ConditionPathExists=/home/lucas/.local/bin/videoswitch
+
+[Service]
+Type=oneshot
+User=lucas
+ExecStart=/home/lucas/.local/bin/videoswitch off
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

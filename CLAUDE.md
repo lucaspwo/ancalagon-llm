@@ -11,7 +11,7 @@ make off                  # para o preset ativo
 make sleep                # para + suspende a máquina (wake via WoL: make wake)
 make logs                 # journalctl -f do service ativo
 make install               # deploy de units + wrappers (scp + daemon-reload) no Ancalagon
-make install-system        # pré-requisitos de sistema (WoL, nvidia-suspend, console-font, usb-port-guard) — 1x por máquina
+make install-system        # pré-requisitos de sistema (WoL, nvidia-suspend, console-font, usb-port-guard, LEDs/monitores apagados no boot) — 1x por máquina
 ```
 
 Não há build nem suíte de testes automatizada neste repo (ver [MANUTENCAO.md](MANUTENCAO.md) § Build/Test/Lint/Deploy). Validação de mudança é `make status` + benchmark manual contra os thresholds de regressão em [`AI_CONTEXT.md`](AI_CONTEXT.md) § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s, flint <60 tok/s, colibri <19 tok/s).
