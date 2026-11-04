@@ -30,6 +30,8 @@ Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Co
 | `scripts/setup-system.sh` | Aplica pré-requisitos de sistema (WoL, `nvidia-suspend/resume/hibernate` se o driver ainda os trouxer, fonte do console, `gpu-guard` habilitado, `usb-port-guard`, `openrgb-boot` + `videoswitch-boot`) |
 | `scripts/build-llama.sh` | Build do `llama.cpp` (referência; compilação real é manual no Ancalagon) |
 | `scripts/bench-presets.py` | Benchmark A/B dos presets (decode + prefill), roda no Ancalagon; método em `benchmarks/TUNING.md` §16 |
+| `benchmarks/agentic/` | Benchmark agêntico: o opencode resolve as tarefas `hard`/`bugfix`/`refactor` e a avaliação é por fora, com testes ocultos (`matrix.sh MODELO TAG`); resultados em `benchmarks/TUNING.md` §20 |
+| `clients/opencode/AGENTS.md` | Pré-prompt de regras para os modelos locais no opencode (ligado via `instructions` no `~/.config/opencode/opencode.json`) |
 | `clients/glaurung-llm/gla` | Wrapper Mac-side: sobe backend local (llama.cpp Metal ou MLX) + abre `opencode` já configurado |
 | `clients/glaurung-llm/TUNING.md` | Dados de tuning do lado Mac (não commitado até esta rodada — ver nota de cobertura no relatório) |
 | `clients/opencode/opencode.json` | Template de config do `opencode` com os providers `ancalagon/*`, `glaurung/*`, `glaurung-mlx/*` |

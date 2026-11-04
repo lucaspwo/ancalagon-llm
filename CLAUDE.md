@@ -33,6 +33,7 @@ Não há build nem suíte de testes automatizada neste repo (ver [MANUTENCAO.md]
 - Bootstrap enxuto de 1 página para sessão nova (PT-BR, convenção Intellissis) → [AI_CONTEXT.md](AI_CONTEXT.md)
 - Charter de delegação cloud↔Ancalagon (quando/como usar `anc-delegate`) → [docs/delegation.md](docs/delegation.md)
 - Dados empíricos por trás das flags de tuning atuais → [benchmarks/TUNING.md](benchmarks/TUNING.md)
+- Qual preset usar como agente no opencode (benchmark agêntico + pré-prompt de regras) → [benchmarks/TUNING.md](benchmarks/TUNING.md) §20, [clients/opencode/AGENTS.md](clients/opencode/AGENTS.md)
 - Diagnóstico da USB port11 morta (erro `-71` em loop) e como caçar o culpado → [docs/usb-port11.md](docs/usb-port11.md)
 
 ## Memórias relacionadas

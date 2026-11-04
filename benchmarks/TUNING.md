@@ -875,3 +875,54 @@ ferramentas maiores, mais raciocínio por turno), mas o flint fecha nos dois e o
 deixaria a sessão passar do `-c` do servidor antes de compactar. `CLAUDE_CODE_MAX_CONTEXT_TOKENS` +
 `CLAUDE_CODE_AUTO_COMPACT_WINDOW` com o `-c` do preset (131072 no flint, 98304 no coder/gemma4)
 corrigem — conferido no `modelUsage.contextWindow` do `claude -p --output-format json`.
+
+## 20. Benchmark agêntico "de vida real" no opencode: flint × qwen38, com e sem pré-prompt (2026-11-04)
+
+Pergunta: qual preset chega mais perto de um modelo de fronteira (Sonnet 5) no opencode, e um pré-prompt
+de regras (`AGENTS.md`) reduz erros? Harness versionado em [`agentic/`](agentic/README.md): opencode 2.2.5
+direto na `:1234`, o modelo resolve sozinho e a avaliação é **por fora**, com testes que ele nunca vê.
+
+| Tarefa | O que mede | Limite |
+|---|---|---|
+| `hard` | a mesma do §18 (9 testes, 2 bugs + parser estrito) | 600 s |
+| `bugfix` | issue de suporte com 4 sintomas → 4 bugs em 2 módulos (case do cupom, `>` vs `>=`, desconto sobre o frete, `ROUND_HALF_EVEN`); exige testes de regressão | 900 s |
+| `refactor` | lógica de preço triplicada num relatório → usar `precos.py` + `formatos.py` com registro, **saída idêntica byte a byte** (19 goldens com unicode, aspas/vírgula/pipe, meio centavo, formato em maiúsculas, mensagem de erro) | 900 s |
+
+`sem` = sem `AGENTS.md`; `com` = a v1 do pré-prompt (`agentic/AGENTS.v1.md`, 8 regras). n=1 por célula.
+
+| Tarefa | qwen38 sem | qwen38 com | flint sem | flint com |
+|---|---|---|---|---|
+| hard | ✅ 210 s, 14 calls | ✅ 269 s, 15 | ✅ 121 s, 9 | ✅ 97 s, 13 |
+| bugfix | ✅ 272 s, 4 testes de regressão | ✅ 496 s, 7 testes | ✅ 123 s, 5 testes | ✅ 184 s, 8 testes |
+| refactor | ❌ 900 s, **nenhuma edição** | ❌ 366 s, `Context size has been exceeded` | ✅ 174 s | ✅ 274 s |
+
+Nenhum run alterou teste existente nem deixou lixo; nos bugfix bem-sucedidos o diff foi o mínimo
+(5+/5−, igual à solução de referência). O refactor do flint ficou limpo nas duas condições
+(`gerar_relatorio` de 120 para 7 linhas, zero cálculo duplicado, 19/19 goldens).
+
+**Conclusões:**
+- **Flint é o preset agêntico**: 6/6, e 1.5-2.7× mais rápido que o qwen38 onde os dois resolvem.
+- **qwen38 resolve tarefa curta, mas não cabe numa sessão longa.** No refactor sem pré-prompt ele releu os
+  8 arquivos do repo **3 vezes** (24 leituras) até o tempo acabar. No refactor com pré-prompt o servidor
+  recusou o request: o preset roda com `n_slots = 4, kv_unified = true`, ou seja, **os 4 slots dividem o
+  pool de 40960 tokens**, e o opencode manda requests em paralelo (slot 1 com 14562 + slot 2 com 26586 =
+  41148 > 40960). O system prompt do opencode sozinho já tem ~14K tokens, dos quais **~9K são a lista de
+  50 skills** (35K caracteres de `<available_skills>`).
+- **O pré-prompt v1 não mudou o acerto** (efeito teto: o que passava sem passou com) e **custou tempo**
+  (+28% a +82%, exceto `flint hard`, −20%); em troca, +60-75% de testes de regressão escritos.
+  A v2 ([`clients/opencode/AGENTS.md`](../clients/opencode/AGENTS.md)) tira a regra mais cara ("rode os
+  testes depois de cada edição") e acrescenta duas, motivadas por comportamento observado aqui: **não
+  reler arquivo que não mudou** (o loop do qwen38) e **não mexer no git nem fora do projeto** (o flint usou
+  `git stash`/`checkout` nos dois refactors para comparar saídas, o que num repo real com trabalho não
+  commitado é perigoso; o qwen38 gravou um script em `/tmp`). **A v2 ainda não foi medida.**
+
+**Armadilhas:**
+- **O `~/.claude/CLAUDE.md` NÃO é injetado** pelo opencode 2.2.5, apesar da doc dizer que é o fallback
+  quando não existe `~/.config/opencode/AGENTS.md`. Conferido capturando o request real com um servidor
+  OpenAI falso (o `AGENTS.md` do projeto aparece como `Instructions from: …`; nenhum trecho do CLAUDE.md
+  aparece). Perguntar ao modelo "o que dizem suas instruções" **não serve** de sonda: com um `AGENTS.md`
+  dizendo "Zorblax", o qwen38 respondeu "Ancalagon".
+- `rc=1` com `Error: Model unavailable: ancdirect/flint` no fim de um run **depois** do trabalho pronto
+  (refactor sem): não afetou o resultado, causa não investigada.
+- O §18 mediu 73 s para o flint na `hard`; hoje 121/97 s com a mesma config. A variância entre runs é grande:
+  n=1 serve para separar resolve/não resolve, não para comparar tempos com precisão de ±30%.

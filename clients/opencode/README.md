@@ -182,6 +182,24 @@ O `name` do model em `opencode.json` deve casar com o que está atualmente carre
 
 Se mexer em `-c` nos `.service` (Ancalagon) ou no comando manual (Glaurung), ajustar `limit.context` aqui.
 
+## Pré-prompt de regras para os modelos locais: [`AGENTS.md`](AGENTS.md)
+
+9 regras contra os erros que os modelos locais cometem como agente: mexer em teste para passar, mudar a saída
+numa refatoração, reler o repo até estourar o contexto, usar `git stash`/`checkout` no repo do usuário. As
+duas últimas foram observadas no benchmark de 2026-11-04 ([`benchmarks/TUNING.md` §20](../../benchmarks/TUNING.md)).
+Ali a v1 não mudou o acerto (efeito teto), custou +28% a +82% de tempo e rendeu +60-75% de testes de
+regressão. A v2, que é a deste arquivo, ainda não foi medida.
+
+Para usar em toda sessão do opencode sem copiar o arquivo (testado: o opencode lê caminho absoluto e o
+request mostra `Instructions from: …/clients/opencode/AGENTS.md`), no `~/.config/opencode/opencode.json`:
+
+```json
+"instructions": ["/Users/lucas/git/apps_mac/ancalagon-llm/clients/opencode/AGENTS.md"]
+```
+
+Isto **soma** com o `AGENTS.md` de cada projeto (não substitui). Para um projeto só, copie o arquivo para a
+raiz dele. Remeça com `benchmarks/agentic/matrix.sh <preset> <tag>` ao mexer nas regras.
+
 ## Quando usar cada provider
 
 | Caso | Provider |
@@ -193,7 +211,8 @@ Se mexer em `-c` nos `.service` (Ancalagon) ou no comando manual (Glaurung), aju
 | Raciocínio formal / matemática crítica | `glaurung/qwen36` (llama.cpp Q4_K_M — K-quants preserva precisão melhor que MLX 4-bit uniforme) |
 | Trocar entre Qwen e Gemma sem reiniciar server | `glaurung-mlx/*` (single server, dynamic load) |
 | Métricas precisas (`timings.predicted_per_second`) | `glaurung/*` (llama.cpp expõe nativo; MLX só tem `usage`) |
-| Tarefa pesada (refactor grande, ctx >50K, prompts longos) | `ancalagon/flint` (ctx 128K, tool calling nativo; resolveu 2/2 a tarefa de 9 testes em que o `coder` estourou 600 s) — `coder`/`gemma4` como alternativa |
+| Tarefa pesada (refactor grande, ctx >50K, prompts longos) | `ancalagon/flint` (ctx 128K, tool calling nativo; 6/6 no benchmark agêntico de 2026-11-04, inclusive o refactor byte a byte — TUNING.md §20) — `coder`/`gemma4` como alternativa |
+| Bugfix curto e localizado | `ancalagon/flint`; o `qwen38` também resolve, ~2× mais lento, mas **não aguenta sessão longa** (ctx 40K dividido entre 4 slots, TUNING.md §20) |
 
 ## Por que opencode e não pi.dev
 

@@ -29,10 +29,12 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 | `scripts/setup-system.sh` | One-time system prerequisites (WoL, nvidia-suspend/resume/hibernate when the driver still ships them, console font, gpu-guard enable, usb-port-guard, openrgb-boot + videoswitch-boot) |
 | `scripts/build-llama.sh` | Reference build script for llama.cpp (manual, not wired to `make`) |
 | `scripts/bench-presets.py` | A/B benchmark of the presets (decode + prefill), run on Ancalagon; method in `benchmarks/TUNING.md` §16 |
+| `benchmarks/agentic/` | Agentic benchmark: opencode solves `hard`/`bugfix`/`refactor` tasks, graded from outside with hidden tests (`matrix.sh MODEL TAG`, `run.sh`); results in `benchmarks/TUNING.md` §20 |
 | `clients/glaurung-llm/gla` | Mac-side backend switcher (llama.cpp Metal / MLX) + opencode launcher |
 | `clients/glaurung-llm/TUNING.md` | Mac-side tuning data (untracked at last audit — see coverage note) |
 | `clients/opencode/opencode.json` | Template config wiring `ancalagon/*`, `glaurung/*`, `glaurung-mlx/*` providers |
 | `clients/opencode/README.md` | Setup + provider-selection guide for `opencode` |
+| `clients/opencode/AGENTS.md` | Rules pre-prompt for local models in opencode (wired via `instructions` in `~/.config/opencode/opencode.json`) |
 | `skills/delegando-ancalagon/anc-delegate` | Headless delegation helper: `preflight\|gen\|iter\|health` |
 | `skills/delegando-ancalagon/SKILL.md` | Claude Code skill definition (Path 1 vs Path 2 routing rules) |
 | `benchmarks/TUNING.md`, `benchmarks/POWER.md` | Raw empirical tuning data behind current flags |
