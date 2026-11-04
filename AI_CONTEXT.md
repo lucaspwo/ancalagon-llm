@@ -44,7 +44,7 @@ Cinco services mutuamente exclusivos (`Conflicts=`), todos na :1234. LM Studio s
 |---|---|---|
 | `systemd/llama-coder.service` | user unit — Qwen3-Coder 30B MoE, `--n-cpu-moe 17 -ub 2048 -t 6`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
 | `systemd/llama-qwen36.service` | user unit — Qwen3.6-27B TQ3_4S (fork), KV q8/q8, ctx 40K | idem |
-| `systemd/llama-qwen38.service` | user unit — Qwen3.8-27B IQ3_M (fork), KV q8/q8, ctx 40K | idem |
+| `systemd/llama-qwen38.service` | user unit — Qwen3.8-27B IQ3_M (fork), KV q8/q8, ctx 40K, `-np 1` (TUNING.md §20) | idem |
 | `systemd/llama-gemma4.service` | user unit — Gemma 4 26B-A4B-it MoE, `--n-cpu-moe 8 -ub 2048 -t 6`, KV q4/q4, ctx 96K | `~/.config/systemd/user/` no Ancalagon |
 | `systemd/llama-flint.service` | user unit — Recursive Flint 40B-A2.5B MoE UD-Q4_K_XL, `--n-cpu-moe 25 -ub 2048 -t 6`, KV q8/q8, ctx 128K | idem |
 | `systemd/colibri-qwen36.service` | user unit — Qwen3.6-35B-A3B via engine Colibri, tier CUDA (`--auto-tier --cap 256`) | `~/.config/systemd/user/` no Ancalagon |

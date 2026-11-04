@@ -926,3 +926,36 @@ Nenhum run alterou teste existente nem deixou lixo; nos bugfix bem-sucedidos o d
   (refactor sem): não afetou o resultado, causa não investigada.
 - O §18 mediu 73 s para o flint na `hard`; hoje 121/97 s com a mesma config. A variância entre runs é grande:
   n=1 serve para separar resolve/não resolve, não para comparar tempos com precisão de ±30%.
+
+### Rodada 2: `qwen38` com `-np 1`, flint ×3, pré-prompt v2 (mesmo dia)
+
+**`-np 1` no qwen38** (`n_slots = 1, n_ctx_slot = 40960, kv_unified = 'false'`, mesma VRAM, 14468 MiB;
+decode 40.3 tok/s em 3 runs, igual ao de antes): os 40960 tokens são de um slot só, e os requests
+paralelos do opencode ficam na fila em vez de dividir o pool. **Adotado.** Matriz com v2 no `com`:
+
+| Tarefa | qwen38 sem | qwen38 com (v2) |
+|---|---|---|
+| hard | ✅ 213 s | ✅ 250 s (v1: 269 s) |
+| bugfix | ✅ 332 s | ✅ 375 s (v1: 496 s) |
+| refactor | ❌ 900 s: refatorou certo (19/19 goldens, `FORMATOS`, zero duplicação), mas o **teste que ele mesmo escreveu** esperava `|\|` em vez de `\|` e o tempo acabou | ❌ 900 s sem editar (17 leituras) |
+
+Nenhum `Context size has been exceeded` (era a falha da rodada 1). O qwen38 continua lento demais para o
+refactor em 900 s; para ele, o problema que sobra é velocidade, não contexto.
+
+**Flint, 3 rodadas** (r1 com v1 no `com`; r2 e r3 com v2): **18/18**.
+
+| Tarefa | sem (r1/r2/r3) | com (r1 v1 / r2 v2 / r3 v2) |
+|---|---|---|
+| hard | 121 / 85 / 104 s | 97 / 149 / 103 s |
+| bugfix | 123 / 139 / 171 s | 184 / 188 / 176 s |
+| refactor | 174 / 228 / 212 s | 274 / 239 / 204 s |
+
+- No refactor r3 `com`, o avaliador marcou "testes alterados": o flint **acrescentou** 3 testes em
+  `tests/test_relatorio.py` sem tocar uma linha dos originais (a tarefa permite testes novos). O
+  `run.sh` passou a distinguir `sim` / `so_adicoes` / `NAO` (`NAO` = alguma linha original removida ou mudada).
+- **Pré-prompt v2 no flint**: acerto igual (efeito teto); tempo de r2+r3, `com` vs `sem`: hard +33%,
+  bugfix +17%, refactor +1%. No qwen38 a v2 saiu 7-24% mais barata que a v1. A regra 8 ("não mexa no git")
+  ficou **inconclusiva**: na rodada 2 o flint não usou `git stash`/`checkout` em nenhuma condição, nem
+  sem o pré-prompt. A recomendação é manter o pré-prompt pelas regras de segurança (3 e 8), que custam
+  pouco, e não esperar dele ganho de acerto.
+
