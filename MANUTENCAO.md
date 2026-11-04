@@ -31,6 +31,7 @@ Um terceiro componente, `skills/delegando-ancalagon/`, é uma skill do Claude Co
 | `scripts/build-llama.sh` | Build do `llama.cpp` (referência; compilação real é manual no Ancalagon) |
 | `scripts/bench-presets.py` | Benchmark A/B dos presets (decode + prefill), roda no Ancalagon; método em `benchmarks/TUNING.md` §16 |
 | `benchmarks/agentic/` | Benchmark agêntico: o opencode resolve as tarefas `hard`/`bugfix`/`refactor` e a avaliação é por fora, com testes ocultos (`matrix.sh MODELO TAG`); resultados em `benchmarks/TUNING.md` §20 |
+| `clients/opencode/sync-claude-skills.sh` | Symlinks do Claude Code para o opencode: skills de plugins (superpowers, frontend-design) em `~/.config/opencode/skills/`, skills `disable-model-invocation` em `commands/`; reporta links quebrados (`make sync-opencode-skills`) |
 | `clients/opencode/AGENTS.md` | Pré-prompt de regras para os modelos locais no opencode (ligado via `instructions` no `~/.config/opencode/opencode.json`) |
 | `clients/glaurung-llm/gla` | Wrapper Mac-side: sobe backend local (llama.cpp Metal ou MLX) + abre `opencode` já configurado |
 | `clients/glaurung-llm/TUNING.md` | Dados de tuning do lado Mac (não commitado até esta rodada — ver nota de cobertura no relatório) |

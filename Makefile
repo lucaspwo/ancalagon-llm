@@ -1,6 +1,6 @@
 REMOTE ?= Anc_U-T
 
-.PHONY: install install-system install-gla install-skill install-gateway-local uninstall-gateway-local wake status coder qwen36 qwen38 gemma4 flint colibri off sleep logs video-off video-on video-status bootwin bootwin-dry
+.PHONY: install install-system install-gla install-skill install-gateway-local uninstall-gateway-local sync-opencode-skills wake status coder qwen36 qwen38 gemma4 flint colibri off sleep logs video-off video-on video-status bootwin bootwin-dry
 
 install:
 	@bash scripts/install.sh
@@ -35,6 +35,9 @@ uninstall-gateway-local:
 	@launchctl bootout gui/$$(id -u)/com.lucaspwo.llm-gateway-local 2>/dev/null || true
 	@rm -f $(HOME)/Library/LaunchAgents/com.lucaspwo.llm-gateway-local.plist
 	@echo "llm-gateway local removido"
+
+sync-opencode-skills:
+	@bash clients/opencode/sync-claude-skills.sh
 
 wake:
 	@wakeonlan 10:7C:61:45:D8:38

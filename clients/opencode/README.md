@@ -200,6 +200,41 @@ request mostra `Instructions from: …/clients/opencode/AGENTS.md`), no `~/.conf
 Isto **soma** com o `AGENTS.md` de cada projeto (não substitui). Para um projeto só, copie o arquivo para a
 raiz dele. Remeça com `benchmarks/agentic/matrix.sh <preset> <tag>` ao mexer nas regras.
 
+## Skills do Claude Code no opencode: `make sync-opencode-skills`
+
+O opencode já lê sozinho `~/.claude/skills/` e `~/.agents/skills/` (as suas, as AWS e as da Anthropic). O
+[`sync-claude-skills.sh`](sync-claude-skills.sh) cobre o resto com symlinks, sem editar o `opencode.json`:
+
+- **skills dos plugins habilitados no Claude Code** (superpowers ×15, frontend-design), via
+  `~/.config/opencode/claude-plugins/<plugin>`, que aponta para o caminho com versão do cache e é refeito a
+  cada execução. **Rode de novo depois de atualizar plugins no Claude Code.**
+- **`create-prd` e `generate-tasks`** (`disable-model-invocation: true`): viram commands
+  (`~/.config/opencode/commands/`), para usar como `/create-prd` na TUI.
+- **links quebrados** em `~/.claude/skills`: só reporta. Hoje são `delegando-intellibuild` e
+  `registrando-demandas`, que apontam para o `intellissis-infra`, não clonado nesta máquina.
+
+Depois de sincronizar: `opencode service stop` (o próximo `opencode` sobe o serviço de novo, já com a config
+nova). Medido em 2026-11-04 capturando o request: **66 skills** (eram 50), e a lista
+`<available_skills>` passou de ~35K para ~39K caracteres (~10K tokens por request, que pesam no `qwen38`
+com 40K).
+
+Ficam de fora:
+- **o bootstrap do superpowers** (o `using-superpowers` injetado em toda sessão, como faz o hook do Claude
+  Code). O plugin nativo dele para o opencode (`"plugins": [<dir local>]`) travou o `opencode run` no 2.2.5.
+  Para religar o bootstrap sem o plugin, acrescente em `instructions`:
+  `"/Users/lucas/.config/opencode/claude-plugins/superpowers/skills/using-superpowers/SKILL.md"` (+~3K
+  caracteres; ele empurra "invoque skills antes de tudo", o que gasta contexto nos modelos locais).
+- **as skills embutidas no binário do Claude Code** (`code-review`, `simplify`, `init`, `security-review`…), que não são arquivos.
+
+Armadilhas do opencode 2.2.5 vistas aqui:
+- **O `opencode run` usa um serviço em background** (`opencode serve --service`), que fica com a config de
+  quando subiu. `opencode service restart` disparado de outro processo deixou o serviço travando todo
+  `run`. Já `opencode service stop`, deixando o próximo comando subir o serviço, resolveu.
+  `--standalone` contorna o serviço.
+- **O `opencode run` não expande slash commands**: `"/create-prd x"` vai literal para o modelo. Os commands só
+  funcionam na TUI. O carregamento deles na TUI **não foi conferido**.
+- **Um diretório `.opencode/` no projeto travou o `run`** (com qualquer conteúdo). Prefira a config global.
+
 ## Quando usar cada provider
 
 | Caso | Provider |

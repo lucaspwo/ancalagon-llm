@@ -6,7 +6,7 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 
 | Path | Purpose |
 |---|---|
-| `Makefile` | Entry points: `install`, `install-system`, `install-gla`, `install-skill`, `install-gateway-local`, `uninstall-gateway-local`, `wake`, `status`, `coder`, `qwen36`, `qwen38`, `gemma4`, `flint`, `off`, `sleep`, `logs`, `video-{off,on,status}`, `bootwin{,-dry}` |
+| `Makefile` | Entry points: `install`, `install-system`, `install-gla`, `install-skill`, `install-gateway-local`, `uninstall-gateway-local`, `sync-opencode-skills`, `wake`, `status`, `coder`, `qwen36`, `qwen38`, `gemma4`, `flint`, `off`, `sleep`, `logs`, `video-{off,on,status}`, `bootwin{,-dry}` |
 | `systemd/llama-coder.service` | Unit — Qwen3-Coder-30B MoE, `--n-cpu-moe 17 -ub 2048 -t 6`, KV q4/q4, ctx 98304 |
 | `systemd/llama-qwen36.service` | Unit — Qwen3.6-27B-TQ3_4S (fork `turbo-tan/llama.cpp-tq3`), KV q8/q8, ctx 40960 |
 | `systemd/llama-qwen38.service` | Unit — Qwen3.8-27B-IQ3_M (fork `turbo-tan/llama.cpp-tq3`), KV q8/q8, ctx 40960, `-np 1` (one slot owns the whole KV; with the default 4 slots the opencode's parallel requests overflowed it — `benchmarks/TUNING.md` §20) |
@@ -34,6 +34,7 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 | `clients/glaurung-llm/TUNING.md` | Mac-side tuning data (untracked at last audit — see coverage note) |
 | `clients/opencode/opencode.json` | Template config wiring `ancalagon/*`, `glaurung/*`, `glaurung-mlx/*` providers |
 | `clients/opencode/README.md` | Setup + provider-selection guide for `opencode` |
+| `clients/opencode/sync-claude-skills.sh` | Symlinks Claude Code → opencode: plugin skills (superpowers, frontend-design) into `~/.config/opencode/skills/`, `disable-model-invocation` skills into `commands/`; reports broken `~/.claude/skills` links (`make sync-opencode-skills`) |
 | `clients/opencode/AGENTS.md` | Rules pre-prompt for local models in opencode (wired via `instructions` in `~/.config/opencode/opencode.json`) |
 | `skills/delegando-ancalagon/anc-delegate` | Headless delegation helper: `preflight\|gen\|iter\|health` |
 | `skills/delegando-ancalagon/SKILL.md` | Claude Code skill definition (Path 1 vs Path 2 routing rules) |
