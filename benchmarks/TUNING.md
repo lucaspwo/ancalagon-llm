@@ -937,7 +937,7 @@ paralelos do opencode ficam na fila em vez de dividir o pool. **Adotado.** Matri
 |---|---|---|
 | hard | ✅ 213 s | ✅ 250 s (v1: 269 s) |
 | bugfix | ✅ 332 s | ✅ 375 s (v1: 496 s) |
-| refactor | ❌ 900 s: refatorou certo (19/19 goldens, `FORMATOS`, zero duplicação), mas o **teste que ele mesmo escreveu** esperava `|\|` em vez de `\|` e o tempo acabou | ❌ 900 s sem editar (17 leituras) |
+| refactor | ❌ 900 s: refatorou certo (19/19 goldens, `FORMATOS`, zero duplicação), mas o **teste que ele mesmo escreveu** esperava um pipe a mais antes do pipe escapado do nome, e o tempo acabou | ❌ 900 s sem editar (17 leituras) |
 
 Nenhum `Context size has been exceeded` (era a falha da rodada 1). O qwen38 continua lento demais para o
 refactor em 900 s; para ele, o problema que sobra é velocidade, não contexto.
