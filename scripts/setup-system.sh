@@ -103,6 +103,10 @@ sudo systemctl daemon-reload
 # reenable (não enable): o [Install] do openrgb-boot ganhou os targets de suspend em 2026-11-04 e a
 # versão antiga, criada à mão, só tinha os links de multi-user.target.
 sudo systemctl reenable openrgb-boot.service videoswitch-boot.service
+# A versão antiga tinha RemainAfterExit=yes: a unit fica "active (exited)" até o próximo boot, mesmo
+# depois do daemon-reload, e o suspend.target não a inicia de novo (no resume de 2026-11-04 os LEDs
+# não apagaram por isso). O stop só zera esse estado, sem efeito nos LEDs.
+sudo systemctl stop openrgb-boot.service
 
 echo ""
 echo "Done. Teste com: lmswitch sleep (do Ancalagon) ou anc_lin_sleep (do Mac)"
