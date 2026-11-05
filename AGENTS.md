@@ -84,7 +84,7 @@ Operational provisioning of the Ancalagon Ubuntu box as a dedicated local LLM se
 - Test: none — no automated suite. Manual validation via `make status` + a fixed benchmark prompt (`scripts/bench-presets.py`) against the regression thresholds in `AI_CONTEXT.md` § "Como testar uma mudança" (coder <55 tok/s, qwen36 <25 tok/s, qwen38 <25 tok/s, gemma4 <40 tok/s, colibri <19 tok/s = regression)
 - Lint: `shellcheck bin/*` (manual, not hooked into CI — there is no CI in this repo)
 - Deploy: `make install` (units + wrappers) · `make install-system` (one-time host prerequisites) · `make install-gla` / `make install-skill` / `make install-gateway-local` (Mac-side components; the last one is a LaunchAgent running the homelab llm-gateway on 127.0.0.1:8090 while Scatha is down)
-- Run: `make coder` / `make qwen36` / `make qwen38` / `make gemma4` / `make flint` / `make colibri` (start a preset) · `make status` (health) · `make logs` (tail journal) · `make off` / `make sleep` (stop / suspend)
+- Run: `make coder` / `make qwen36` / `make qwen38` / `make gemma4` / `make flint` / `make colibri` (start a preset) · `make status` (health) · `make logs` (tail journal) · `make off` / `make sleep` (stop / suspend) · `make wake` (WoL: `ssh lucaspwo@192.168.1.2 ether-wake -i br0 <MAC>` on the ASUS, falls back to local `wakeonlan`)
 
 ## Conventions & constraints
 

@@ -90,6 +90,7 @@ make flint     # start Recursive Flint 40B-A2.5B (MoE, --n-cpu-moe 25, -ub 2048,
 make colibri   # start Qwen3.6-35B-A3B via Colibri (CUDA VRAM tier, ~70% experts resident)
 make off       # stop whichever preset is active
 make sleep     # stop + suspend the whole machine (wake via WoL)
+make wake      # WoL via the ASUS router over SSH (works off-LAN through Tailscale); falls back to local wakeonlan
 make status    # service states + health probe on :1234
 make logs      # tail the journal of the active preset
 ```

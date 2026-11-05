@@ -1,4 +1,9 @@
 REMOTE ?= Anc_U-T
+# WoL: o ASUS (modo AP) manda o magic packet de dentro da LAN; a rota 192.168.1.2/32
+# anunciada pelo Apple TV no Tailscale faz isso funcionar também de fora de casa.
+WOL_MAC ?= 10:7C:61:45:D8:38
+WOL_ROUTER ?= lucaspwo@192.168.1.2
+WOL_IFACE ?= br0
 
 .PHONY: install install-system install-gla install-skill install-gateway-local uninstall-gateway-local sync-opencode-skills wake status coder qwen36 qwen38 gemma4 flint colibri off sleep logs video-off video-on video-status bootwin bootwin-dry
 
@@ -40,7 +45,12 @@ sync-opencode-skills:
 	@bash clients/opencode/sync-claude-skills.sh
 
 wake:
-	@wakeonlan 10:7C:61:45:D8:38
+	@if ssh -o BatchMode=yes -o ConnectTimeout=5 $(WOL_ROUTER) 'ether-wake -i $(WOL_IFACE) $(WOL_MAC)'; then \
+		echo "WoL enviado via ASUS ($(WOL_ROUTER), $(WOL_IFACE)) para $(WOL_MAC)"; \
+	else \
+		echo "ASUS ($(WOL_ROUTER)) inacessível — fallback para wakeonlan local (só alcança a LAN)" >&2; \
+		wakeonlan $(WOL_MAC); \
+	fi
 
 status:
 	@ssh $(REMOTE) /home/lucas/.local/bin/lmswitch status
